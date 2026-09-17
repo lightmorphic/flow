@@ -10,6 +10,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, GLib, Gtk          # noqa: E402
 
 from . import config, discovery, pairing, screen        # noqa: E402
+from .updatedot import UpdateDot                        # noqa: E402
 
 EDGES = ["right", "left", "top", "bottom"]
 EDGE_LABELS = ["To my right", "To my left", "Above me", "Below me"]
@@ -47,8 +48,11 @@ class Window(Adw.ApplicationWindow):
         header.pack_end(self.power)
         box.append(header)
 
+        scroller = Gtk.ScrolledWindow(vexpand=True)
         self.page = Adw.PreferencesPage()
-        box.append(self.page)
+        scroller.set_child(self.page)
+        box.append(scroller)
+        box.append(UpdateDot())
         self.toasts.set_child(box)
 
         self.page.add(self._group_role())
