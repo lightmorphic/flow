@@ -234,6 +234,15 @@ def cmd_config(args):
     return 0
 
 
+def _typelib(namespace, version):
+    """Is <Namespace>-<version>.typelib installed anywhere it would be found?"""
+    import glob
+    roots = [d for d in os.environ.get("GI_TYPELIB_PATH", "").split(os.pathsep) if d]
+    roots += glob.glob("/usr/lib*/girepository-*") + glob.glob("/usr/lib/*/girepository-*")
+    wanted = f"{namespace}-{version}.typelib"
+    return any(os.path.exists(os.path.join(root, wanted)) for root in roots)
+
+
 def cmd_doctor(_args):
     """Everything worth knowing when something is missing or broken."""
     import platform
@@ -253,16 +262,13 @@ def cmd_doctor(_args):
               f".{Gtk.get_micro_version()}")
     except Exception as exc:
         print(f"gtk4             MISSING ({exc})")
+    # Look on disk rather than importing: the tray library is built against
+    # GTK 3, and GTK 4 is already loaded in this process, so importing it here
+    # would fail even when it is perfectly well installed.
     for namespace, version, label in (("Adw", "1", "libadwaita"),
                                       ("AyatanaAppIndicator3", "0.1", "tray (ayatana)"),
                                       ("AppIndicator3", "0.1", "tray (older)")):
-        try:
-            import gi
-            gi.require_version(namespace, version)
-            __import__("gi.repository", fromlist=[namespace])
-            print(f"{label:16} yes")
-        except Exception:
-            print(f"{label:16} no")
+        print(f"{label:16} {'yes' if _typelib(namespace, version) else 'no'}")
 
     try:
         import gi._gi_cairo            # noqa: F401

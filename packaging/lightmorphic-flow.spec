@@ -1,5 +1,5 @@
 Name:           lightmorphic-flow
-Version:        0.3.4
+Version:        0.3.5
 Release:        1%{?dist}
 Summary:        Share one mouse, keyboard and clipboard between Linux computers
 
@@ -169,6 +169,9 @@ fi
 %{_datadir}/icons/hicolor/*/apps/uk.lightmorph.Flow*.png
 
 %changelog
+* Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.3.5-1
+- The doctor reports the tray library correctly
+
 * Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.3.4-1
 - Declare the cairo bindings the update dot is drawn with
 
