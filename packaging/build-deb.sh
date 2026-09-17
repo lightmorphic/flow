@@ -185,6 +185,14 @@ if [ "$1" = "configure" ]; then
     if [ -x /usr/bin/firewall-cmd ]; then firewall-cmd --reload >/dev/null 2>&1 || true; fi
     systemctl daemon-reload >/dev/null 2>&1 || true
     systemctl --global enable lmflow-tray.service >/dev/null 2>&1 || true
+    # Restart the running copies, otherwise an upgrade leaves the old code in
+    # memory and the new fixes do nothing until the next login.
+    for who in $(loginctl list-users --no-legend 2>/dev/null | awk '{print $2}'); do
+        systemctl --user -M "$who@" try-restart \
+            lmflow-server.service lmflow-client.service lmflow-tray.service \
+            >/dev/null 2>&1 || true
+    done
+
     rm -f /etc/xdg/autostart/uk.lightmorph.Flow.tray.desktop
     echo ""
     echo "  Lightmorphic Flow is ready. Open it from your applications."

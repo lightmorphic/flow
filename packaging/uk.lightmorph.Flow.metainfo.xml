@@ -80,6 +80,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.6.7" date="2026-09-17">
+      <description>
+        <p>Finds computers on home networks that are not the usual size, and an upgrade now restarts what is running.</p>
+      </description>
+    </release>
     <release version="0.6.6" date="2026-09-17">
       <description>
         <p>Something that cannot start now gives up instead of flashing in the dock for ever.</p>

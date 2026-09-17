@@ -394,7 +394,9 @@ class Server:
         if self.cfg["discovery"]:
             self.announcer.start()
         self.publish()
-        self.log(f"ready - screen {self.width}x{self.height}")
+        from . import __version__
+        self.log(f"ready - Lightmorphic Flow {__version__}, "
+                 f"screen {self.width}x{self.height}")
         last_scan = last_cfg = last_command = time.monotonic()
         try:
             while self.running:

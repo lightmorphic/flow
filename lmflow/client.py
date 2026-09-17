@@ -80,7 +80,9 @@ class Client:
         if self.cfg["discovery"]:
             self.listener = discovery.Listener(ignore_id=self.id)
             self.listener.start()
-        self.log(f"screen {self.width}x{self.height}; looking for the other machine")
+        from . import __version__
+        self.log(f"Lightmorphic Flow {__version__}; screen "
+                 f"{self.width}x{self.height}; looking for the other machine")
         while self.running:
             try:
                 self.publish()

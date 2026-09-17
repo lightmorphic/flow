@@ -7,9 +7,11 @@ unasked is dropped. Deskflow never hit this because you type its address in.
 """
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import socket
+import struct
 import threading
 import time
 
@@ -34,17 +36,31 @@ def machine_name() -> str:
     return socket.gethostname()
 
 
+SIOCGIFBRDADDR = 0x8919
+
+
 def _broadcast_addresses():
+    """Ask the kernel for each interface's real broadcast address.
+
+    Guessing a.b.c.255 is wrong on any network that is not a /24, and a home
+    network on a /22 - which is common - never hears a word. That one wrong
+    assumption is why two machines could sit side by side and find nothing.
+    """
     # 127.0.0.1 as well, so two copies on one machine can still see each other.
     addrs = {"255.255.255.255", "127.0.0.1"}
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.connect(("198.51.100.1", 9))
-        own = sock.getsockname()[0]
+        for _index, name in socket.if_nameindex():
+            try:
+                packed = fcntl.ioctl(sock.fileno(), SIOCGIFBRDADDR,
+                                     struct.pack("256s", name.encode()[:15]))
+                address = socket.inet_ntoa(packed[20:24])
+            except OSError:
+                continue
+            if address not in ("0.0.0.0", "255.255.255.255"):
+                addrs.add(address)
+    finally:
         sock.close()
-        addrs.add(".".join(own.split(".")[:3] + ["255"]))
-    except OSError:
-        pass
     return sorted(addrs)
 
 
