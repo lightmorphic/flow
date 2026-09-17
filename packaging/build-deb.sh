@@ -74,6 +74,7 @@ install -m 0644 "$here/lmflow.svg" \
 
 install -d "$stage/usr/share/doc/lmflow"
 install -m 0644 "$root/README.md" "$stage/usr/share/doc/lmflow/README.md"
+install -m 0644 "$root/LICENSE" "$stage/usr/share/doc/lmflow/copyright"
 
 # ---- control ---------------------------------------------------------------
 install -d "$stage/DEBIAN"

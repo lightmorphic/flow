@@ -111,6 +111,10 @@ sudo apt remove lightmorphic-flow
 
 Your settings in `~/.config/lmflow` are left alone.
 
+## Licence
+
+GPL-3.0-or-later. The full text is in `LICENSE`.
+
 ## Checking it works
 
 ```
