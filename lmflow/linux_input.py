@@ -38,9 +38,11 @@ _UI = ord("U")
 UI_DEV_CREATE = _ioc(0, _UI, 1, 0)
 UI_DEV_DESTROY = _ioc(0, _UI, 2, 0)
 UI_DEV_SETUP = _ioc(1, _UI, 3, 92)
+UI_ABS_SETUP = _ioc(1, _UI, 4, 28)
 UI_SET_EVBIT = _ioc(1, _UI, 100, 4)
 UI_SET_KEYBIT = _ioc(1, _UI, 101, 4)
 UI_SET_RELBIT = _ioc(1, _UI, 102, 4)
+UI_SET_ABSBIT = _ioc(1, _UI, 103, 4)
 EVIOCGRAB = _ioc(1, ord("E"), 0x90, 4)
 
 
@@ -161,15 +163,26 @@ class InputReader:
 
 
 # -------------------------------------------------------------- writing them
+ABS_RANGE = 32767          # the scale absolute coordinates are sent on
+
+
 class VirtualDevice:
     """A uinput device. Keyboard and pointer are kept separate so that
-    libinput classifies each of them the way we want."""
+    libinput classifies each of them the way we want.
+
+    An absolute pointer is the same shape as the mouse a virtual machine
+    offers its guest: it reports where the pointer IS rather than how far it
+    has moved. That matters because the desktop applies its own acceleration
+    to relative movement, so the real pointer and our idea of where it is
+    drift apart - and then the pointer cannot find its way back to the edge
+    it came in by.
+    """
 
     KEY_RANGES = ((1, 255), (352, 542))
     BUTTONS = tuple(range(0x110, 0x118))
     RELS = (REL_X, REL_Y, REL_WHEEL, REL_HWHEEL, REL_WHEEL_HI_RES, REL_HWHEEL_HI_RES)
 
-    def __init__(self, name: str, pointer: bool):
+    def __init__(self, name: str, pointer: bool, absolute: bool = False):
         try:
             self.fd = os.open("/dev/uinput", os.O_WRONLY | os.O_NONBLOCK)
         except OSError as exc:
@@ -183,10 +196,22 @@ class VirtualDevice:
         fcntl.ioctl(self.fd, UI_SET_EVBIT, EV_SYN)
         if pointer:
             fcntl.ioctl(self.fd, UI_SET_EVBIT, EV_REL)
-            for code in self.RELS:
+            # An absolute pointer must not also offer relative movement, or the
+            # desktop treats it as an ordinary mouse and ignores the positions.
+            # Wheels stay: that is the shape a virtual machine's mouse has.
+            rels = (REL_WHEEL, REL_HWHEEL, REL_WHEEL_HI_RES, REL_HWHEEL_HI_RES) \
+                if absolute else self.RELS
+            for code in rels:
                 fcntl.ioctl(self.fd, UI_SET_RELBIT, code)
             for code in self.BUTTONS:
                 fcntl.ioctl(self.fd, UI_SET_KEYBIT, code)
+            if absolute:
+                fcntl.ioctl(self.fd, UI_SET_EVBIT, EV_ABS)
+                for code in (ABS_X, ABS_Y):
+                    fcntl.ioctl(self.fd, UI_SET_ABSBIT, code)
+                    # code, then value/min/max/fuzz/flat/resolution
+                    setup = struct.pack("Hxx6i", code, 0, 0, ABS_RANGE, 0, 0, 0)
+                    fcntl.ioctl(self.fd, UI_ABS_SETUP, setup)
         else:
             for lo, hi in self.KEY_RANGES:
                 for code in range(lo, hi + 1):

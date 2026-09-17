@@ -17,8 +17,8 @@ import time
 from . import config, discovery, net, protocol, screen, status
 from .clipboard import Clipboard
 from .hotkeys import HotkeyWatcher
-from .linux_input import (EV_KEY, EV_REL, InputError, InputReader, REL_X, REL_Y,
-                          list_devices)
+from .linux_input import (ABS_RANGE, ABS_X, ABS_Y, EV_ABS, EV_KEY, EV_REL,
+                          InputError, InputReader, REL_X, REL_Y, list_devices)
 from .touchpad import TouchpadTranslator
 
 RESCAN_SECONDS = 3.0
@@ -105,6 +105,7 @@ class Server:
         self._pads = {}
         self._selector = selectors.DefaultSelector()
         self._batch = []
+        self._moved = False
         self._push = 0.0
         self._push_edge = None
         self._push_started = 0.0
@@ -360,13 +361,33 @@ class Server:
             return
         if etype == EV_REL and code in (REL_X, REL_Y):
             self._move(value, 0) if code == REL_X else self._move(0, value)
+            self._moved = True
+            return                      # sent as a position, not a movement
         if self.active is not None:
             self._batch.append((etype, code, value))
 
     def _flush(self):
-        if self._batch and self.active is not None:
-            self.active.send(protocol.pack_events(self._batch))
+        peer = self.active
+        if peer is None:
+            self._batch.clear()
+            self._moved = False
+            return
+        events = []
+        if self._moved:
+            # Where the pointer is, on the 0..32767 scale, so the other
+            # machine's own mouse acceleration cannot pull the two apart.
+            width, height = peer.size
+            events.append((EV_ABS, ABS_X,
+                           max(0, min(ABS_RANGE,
+                                      int(self.x * ABS_RANGE / max(1, width - 1))))))
+            events.append((EV_ABS, ABS_Y,
+                           max(0, min(ABS_RANGE,
+                                      int(self.y * ABS_RANGE / max(1, height - 1))))))
+            self._moved = False
+        events.extend(self._batch)
         self._batch.clear()
+        if events:
+            peer.send(protocol.pack_events(events))
 
     def _watchdog(self):
         """Whatever else goes wrong, the computer you are sitting at gets its

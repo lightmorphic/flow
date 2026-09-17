@@ -33,7 +33,7 @@ Pure Python 3, no libraries to install, about 1,700 lines.
 ## Install (on every machine)
 
 ```
-sudo apt install ./lightmorphic-flow_0.6.8_all.deb
+sudo apt install ./lightmorphic-flow_0.7.0_all.deb
 ```
 
 That puts everything in place, including permission to read the mouse and
@@ -49,7 +49,7 @@ yourself to the `input` group instead.
 On Fedora, openSUSE and anything else that uses `.rpm`:
 
 ```
-sudo dnf install ./lightmorphic-flow-0.6.8-1.noarch.rpm
+sudo dnf install ./lightmorphic-flow-0.7.0-1.noarch.rpm
 ```
 
 To build either package yourself:
@@ -102,7 +102,7 @@ values live in `~/.config/lmflow/config.json`:
 | `share_clipboard` | Copy and paste between the machines |
 | `discovery` | Announce yourself on the network |
 | `grab_touchpads` | Use the laptop touchpad on the other machines too |
-| `pointer_speed` | Pointer speed once you are on another machine |
+| `pointer_speed` | How far the pointer travels on the other machine |
 
 ## The tray icon
 

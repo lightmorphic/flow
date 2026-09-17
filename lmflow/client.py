@@ -8,7 +8,8 @@ import time
 
 from . import config, discovery, net, protocol, screen, status
 from .clipboard import Clipboard
-from .linux_input import (EV_KEY, EV_REL, InputError, REL_X, REL_Y, VirtualDevice)
+from .linux_input import (ABS_RANGE, ABS_X, ABS_Y, EV_ABS, EV_KEY, EV_REL,
+                          InputError, REL_X, REL_Y, VirtualDevice)
 
 RECONNECT_SECONDS = 3.0
 SLAM = 40000            # far enough to pin the cursor into a corner
@@ -37,7 +38,8 @@ class Client:
     # ---------------------------------------------------------------- devices
     def _open_devices(self):
         if self.pointer is None:
-            self.pointer = VirtualDevice("Lightmorphic Flow pointer", pointer=True)
+            self.pointer = VirtualDevice("Lightmorphic Flow pointer",
+                                         pointer=True, absolute=True)
             self.keyboard = VirtualDevice("Lightmorphic Flow keyboard", pointer=False)
             time.sleep(0.3)        # let the desktop notice the new devices
 
@@ -226,8 +228,9 @@ class Client:
             pass
 
     def _replay(self, events):
-        pointer_events = [e for e in events if e[0] == EV_REL or
-                          (e[0] == EV_KEY and 0x110 <= e[1] <= 0x117)]
+        pointer_events = [e for e in events
+                          if e[0] in (EV_REL, EV_ABS)
+                          or (e[0] == EV_KEY and 0x110 <= e[1] <= 0x117)]
         key_events = [e for e in events if e[0] == EV_KEY and e[1] < 0x100]
         if pointer_events:
             self.pointer.emit(pointer_events)
@@ -235,10 +238,10 @@ class Client:
             self.keyboard.emit(key_events)
 
     def _place(self, x, y):
-        """No absolute pointer here, so pin to the top-left then step out."""
-        self.pointer.emit([(EV_REL, REL_X, -SLAM), (EV_REL, REL_Y, -SLAM)])
-        time.sleep(0.01)
-        self.pointer.emit([(EV_REL, REL_X, max(0, x)), (EV_REL, REL_Y, max(0, y))])
+        """Told where to be, in the 0..32767 scale the device was set up with."""
+        sx = max(0, min(ABS_RANGE, int(x * ABS_RANGE / max(1, self.width - 1))))
+        sy = max(0, min(ABS_RANGE, int(y * ABS_RANGE / max(1, self.height - 1))))
+        self.pointer.emit([(EV_ABS, ABS_X, sx), (EV_ABS, ABS_Y, sy)])
 
     def _send_clipboard(self, text):
         with self._lock:

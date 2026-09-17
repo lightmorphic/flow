@@ -1,5 +1,5 @@
 Name:           lightmorphic-flow
-Version:        0.6.8
+Version:        0.7.0
 Release:        1%{?dist}
 Summary:        Share one mouse, keyboard and clipboard between Linux computers
 
@@ -23,7 +23,7 @@ Requires:       gtk3
 Requires:       libayatana-appindicator-gtk3
 Requires:       openssl
 Requires:       systemd
-Recommends:     wl-clipboard
+Suggests:       wl-clipboard
 Obsoletes:      deskmorphic < 0.2.0
 Provides:       deskmorphic = %{version}-%{release}
 
@@ -192,6 +192,9 @@ fi
 %{_datadir}/icons/hicolor/*/apps/uk.lightmorph.Flow*.png
 
 %changelog
+* Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.7.0-1
+- The pointer can find its way back, and the clipboard needs no other tools
+
 * Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.6.8-1
 - Says when the other computer's identity has changed, and offers to trust it
 

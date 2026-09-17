@@ -80,6 +80,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.7.0" date="2026-09-17">
+      <description>
+        <p>The pointer can find its way back from the other machine, and the clipboard needs no other programs installed.</p>
+      </description>
+    </release>
     <release version="0.6.8" date="2026-09-17">
       <description>
         <p>Says when the other computer's identity has changed instead of retrying silently, and stops the tray flashing in the dock.</p>

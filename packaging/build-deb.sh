@@ -138,7 +138,7 @@ Depends: python3 (>= 3.9), python3-gi, python3-gi-cairo, python3-cairo,
          gir1.2-gtk-4.0, gir1.2-adw-1,
          gir1.2-gtk-3.0, gir1.2-ayatanaappindicator3-0.1 | gir1.2-appindicator3-0.1,
          openssl, systemd
-Recommends: wl-clipboard | xclip
+Suggests: wl-clipboard | xclip
 Installed-Size: $size
 Homepage: https://flow.lightmorphic.com
 Conflicts: deskmorphic
@@ -221,10 +221,6 @@ if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
         udevadm control --reload-rules >/dev/null 2>&1 || true
     fi
     systemctl daemon-reload >/dev/null 2>&1 || true
-    echo ""
-    echo "  Lightmorphic Flow is ready. Open it from your applications."
-    echo "  If it tells you it cannot read your mouse, log out and back in once."
-    echo ""
 fi
 
 if [ "$1" = "purge" ]; then

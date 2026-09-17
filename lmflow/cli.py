@@ -389,6 +389,11 @@ def cmd_tray(_args):
     return main()
 
 
+def cmd_clipwatch(_args):
+    from .clipwatch import main
+    return main()
+
+
 def _install_stop(obj):
     def handler(_sig, _frame):
         obj.stop()
@@ -419,6 +424,7 @@ def main(argv=None):
     subs.add_parser("report", help="write a full report to a file you can send on").set_defaults(func=cmd_report)
     subs.add_parser("gui", help="open the settings window").set_defaults(func=cmd_gui)
     subs.add_parser("tray", help="show the tray icon").set_defaults(func=cmd_tray)
+    subs.add_parser("clipwatch", help=argparse.SUPPRESS).set_defaults(func=cmd_clipwatch)
     subs.add_parser("install-services",
                     help="add the background service and menu entry").set_defaults(func=cmd_install_services)
 

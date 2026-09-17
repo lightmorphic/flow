@@ -215,7 +215,8 @@ class FakeDevice:
 
 
 made = []
-client_mod.VirtualDevice = lambda name, pointer: made.append(FakeDevice()) or made[-1]
+client_mod.VirtualDevice = (lambda name, pointer, absolute=False:
+                            made.append(FakeDevice()) or made[-1])
 
 srv = make_server(port=24899)
 srv.running = True
@@ -265,13 +266,21 @@ srv.go_to(peer)
 time.sleep(0.4)
 pointer = made[0] if made else None
 check("cursor was placed on the other screen",
-      pointer is not None and len(pointer.events) >= 4)
+      pointer is not None and len(pointer.events) >= 2,
+      str(pointer.events[-2:]) if pointer else "no device")
 
-srv._batch = [(2, 0, 7), (2, 1, -4), (1, 30, 1), (1, 30, 0)]
+srv.x, srv.y = 800, 450
+srv._moved = True
+srv._batch = [(1, 30, 1), (1, 30, 0)]
 srv._flush()
 time.sleep(0.4)
 keyboard = made[1] if len(made) > 1 else None
-check("mouse movement arrived", pointer is not None and (2, 0, 7) in pointer.events)
+from lmflow.linux_input import ABS_RANGE, ABS_X, ABS_Y, EV_ABS
+abs_sent = [e for e in (pointer.events if pointer else []) if e[0] == EV_ABS]
+check("the pointer's position arrived, not its movement", bool(abs_sent),
+      str(abs_sent[-2:]))
+check("and it is on the agreed scale",
+      all(0 <= v <= ABS_RANGE for _t, _c, v in abs_sent))
 check("key presses arrived", keyboard is not None and (1, 30, 1) in keyboard.events)
 
 got = []
@@ -337,7 +346,7 @@ f.x, f.y = 999, 400
 f.go_to(deaf)
 start = time.monotonic()
 for _ in range(server_mod.Peer.OUTBOX + 50):
-    f._batch = [(2, 0, 3)]
+    f._moved = True
     f._flush()
 spent = time.monotonic() - start
 check("sending to a machine that has stopped reading never blocks", spent < 2.0,
