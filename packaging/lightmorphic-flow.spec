@@ -1,5 +1,5 @@
 Name:           lightmorphic-flow
-Version:        0.6.7
+Version:        0.6.8
 Release:        1%{?dist}
 Summary:        Share one mouse, keyboard and clipboard between Linux computers
 
@@ -192,6 +192,9 @@ fi
 %{_datadir}/icons/hicolor/*/apps/uk.lightmorph.Flow*.png
 
 %changelog
+* Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.6.8-1
+- Says when the other computer's identity has changed, and offers to trust it
+
 * Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.6.7-1
 - Finds computers on networks that are not a /24, and upgrades restart it
 

@@ -56,6 +56,7 @@ class Client:
             "connected": self.conn is not None,
             "server": self.cfg.get("server_host") or "",
             "server_name": self.cfg.get("server_name") or "",
+            "identity_changed": False,
             "active": None,
             "peers": [],
             "found": [{"id": f["id"], "name": f.get("name", f["host"]),
@@ -129,7 +130,15 @@ class Client:
         actual = net.peer_fingerprint(conn)
         if pinned and pinned.lower() != actual:
             conn.close()
-            raise ValueError("that machine's certificate does not match the saved one")
+            status.write({"role": "client", "running": True, "connected": False,
+                          "server": host, "server_name": self.cfg.get("server_name", ""),
+                          "identity_changed": True, "active": None,
+                          "peers": [], "found": []})
+            raise ValueError(
+                f"{self.cfg.get('server_name') or host} is not the computer it "
+                "was: its identity has changed, usually because Lightmorphic "
+                "Flow was reinstalled there. Press 'Trust it again' in the "
+                "settings window, or 'Allow a new computer' over there.")
 
         conn.sendall(protocol.pack_json(protocol.HELLO, {
             "id": self.id, "name": self.name, "token": self.cfg["token"],

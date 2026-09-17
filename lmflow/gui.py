@@ -143,6 +143,22 @@ class Window(Adw.ApplicationWindow):
             self.warning.add(row)
             self._warning_rows.append(row)
 
+        if status.read().get("identity_changed"):
+            row = Adw.ActionRow(
+                title="The other computer is not the one it was",
+                subtitle="Its identity has changed, which normally means "
+                         "Lightmorphic Flow was reinstalled there. Trusting it "
+                         "again is safe on your own network; if you were not "
+                         "expecting this, do not.")
+            row.set_subtitle_lines(4)
+            button = Gtk.Button(label="Trust it again", valign=Gtk.Align.CENTER)
+            button.add_css_class("suggested-action")
+            button.connect("clicked", self._trust_again)
+            row.add_suffix(button)
+            row.set_activatable_widget(button)
+            self.warning.add(row)
+            self._warning_rows.append(row)
+
         kind = self._firewall_in_the_way()
         if kind:
             row = Adw.ActionRow(
@@ -161,6 +177,13 @@ class Window(Adw.ApplicationWindow):
             self._warning_rows.append(row)
 
         self.warning.set_title("Not working yet" if self._warning_rows else "")
+
+    def _trust_again(self, _button):
+        self.cfg["server_fingerprint"] = ""
+        self.cfg["token"] = ""
+        config.save(self.cfg)
+        _systemctl("restart", "lmflow-client.service")
+        self._rebuild_warning()
 
     def _firewall_in_the_way(self):
         """Only the computer with the keyboard has to accept anything coming

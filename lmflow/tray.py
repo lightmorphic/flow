@@ -106,10 +106,15 @@ class Tray:
     # ----------------------------------------------------------------- menu
     def _tick(self):
         state = status.read()
-        signature = (state["running"], bool(state["active"]),
+        # Only what the menu actually shows. Anything else changing must not
+        # rebuild it: the menu is a window, and rebuilding it flashes in the
+        # dock - which is exactly what a laptop retrying every three seconds
+        # used to do.
+        signature = (bool(state.get("running")), bool(state.get("active")),
                      permissions.state(),
-                     (state["active"] or {}).get("id"),
-                     tuple((p["id"], p["name"], p["edge"]) for p in state["peers"]),
+                     (state.get("active") or {}).get("id"),
+                     tuple((p["id"], p["name"], p["edge"])
+                           for p in state.get("peers", [])),
                      self._service_active())
         if signature != self._signature:
             self._signature = signature
