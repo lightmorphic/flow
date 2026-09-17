@@ -73,7 +73,7 @@ class Window(Adw.ApplicationWindow):
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         display = Gdk.Display.get_default()
         theme = Gtk.IconTheme.get_for_display(display) if display else None
-        name = "lmflow" if theme and theme.has_icon("lmflow") else "input-mouse-symbolic"
+        name = "uk.lightmorph.Flow" if theme and theme.has_icon("uk.lightmorph.Flow") else "input-mouse-symbolic"
         icon = Gtk.Image.new_from_icon_name(name)
         icon.set_pixel_size(22)
         row.append(icon)

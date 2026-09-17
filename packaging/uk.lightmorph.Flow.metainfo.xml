@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>uk.lightmorph.Flow</id>
+  <name>Lightmorphic Flow</name>
+  <summary>Share one mouse, keyboard and clipboard between computers</summary>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <developer id="uk.lightmorph">
+    <name>Lightmorphic</name>
+  </developer>
+
+  <description>
+    <p>
+      Lightmorphic Flow lets one keyboard and mouse drive up to four other
+      computers on the same network, one on each edge of your screen, and
+      keeps the text clipboard in step between them.
+    </p>
+    <p>
+      It never takes over a screen edge. A light touch on an edge or a corner
+      does nothing at all, so hot corners and hot edges carry on working the
+      way they always did. Only a deliberate, continued push moves the pointer
+      to the next computer. While the pointer is on your own screen nothing is
+      grabbed, so touchpad gestures, pointer speed and every shortcut are
+      untouched.
+    </p>
+    <p>The computers find each other by themselves, and every link is encrypted.</p>
+    <p>This is a beta release. Expect rough edges.</p>
+  </description>
+
+  <launchable type="desktop-id">uk.lightmorph.Flow.desktop</launchable>
+  <url type="homepage">https://flow.lightmorphic.com</url>
+  <url type="bugtracker">https://github.com/lightmorphic/flow/issues</url>
+  <url type="vcs-browser">https://github.com/lightmorphic/flow</url>
+
+  <categories>
+    <category>Utility</category>
+    <category>Settings</category>
+  </categories>
+
+  <keywords>
+    <keyword>mouse</keyword>
+    <keyword>keyboard</keyword>
+    <keyword>clipboard</keyword>
+    <keyword>kvm</keyword>
+    <keyword>share</keyword>
+  </keywords>
+
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+
+  <content_rating type="oars-1.1"/>
+
+  <releases>
+    <release version="0.2.1" date="2026-09-17">
+      <description>
+        <p>The application icon and the listing in your software centre.</p>
+      </description>
+    </release>
+    <release version="0.2.0" date="2026-09-17">
+      <description>
+        <p>Finds other computers on the network. Drives up to four at once.</p>
+      </description>
+    </release>
+  </releases>
+</component>

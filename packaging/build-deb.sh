@@ -55,22 +55,31 @@ printf 'uinput\n' > "$stage/usr/lib/modules-load.d/lmflow.conf"
 chmod 0644 "$stage/usr/lib/modules-load.d/lmflow.conf"
 
 install -d "$stage/usr/share/applications"
-cat > "$stage/usr/share/applications/lmflow.desktop" <<'DESK'
+cat > "$stage/usr/share/applications/uk.lightmorph.Flow.desktop" <<'DESK'
 [Desktop Entry]
 Type=Application
 Name=Lightmorphic Flow
-Comment=Share one mouse, keyboard and clipboard between two computers
+Comment=Share one mouse, keyboard and clipboard between computers
 Exec=lmflow gui
-Icon=lmflow
+Icon=uk.lightmorph.Flow
 Terminal=false
-Categories=Utility;Settings;HardwareSettings;
+Categories=Utility;
 Keywords=mouse;keyboard;clipboard;kvm;share;
+StartupNotify=true
 DESK
-chmod 0644 "$stage/usr/share/applications/lmflow.desktop"
+chmod 0644 "$stage/usr/share/applications/uk.lightmorph.Flow.desktop"
+
+install -d "$stage/usr/share/metainfo"
+install -m 0644 "$here/uk.lightmorph.Flow.metainfo.xml" "$stage/usr/share/metainfo/"
 
 install -d "$stage/usr/share/icons/hicolor/scalable/apps"
-install -m 0644 "$here/lmflow.svg" \
-  "$stage/usr/share/icons/hicolor/scalable/apps/lmflow.svg"
+install -m 0644 "$here/uk.lightmorph.Flow.svg" \
+  "$stage/usr/share/icons/hicolor/scalable/apps/uk.lightmorph.Flow.svg"
+for s in 48 64 128 256 512; do
+  install -d "$stage/usr/share/icons/hicolor/${s}x${s}/apps"
+  install -m 0644 "$here/icons/$s/uk.lightmorph.Flow.png" \
+    "$stage/usr/share/icons/hicolor/${s}x${s}/apps/uk.lightmorph.Flow.png"
+done
 
 install -d "$stage/usr/share/doc/lmflow"
 install -m 0644 "$root/README.md" "$stage/usr/share/doc/lmflow/README.md"
@@ -132,7 +141,13 @@ if [ "$1" = "configure" ]; then
     fi
     systemctl daemon-reload >/dev/null 2>&1 || true
     if [ -x /usr/bin/gtk-update-icon-cache ]; then
-        gtk-update-icon-cache -q /usr/share/icons/hicolor 2>/dev/null || true
+        gtk-update-icon-cache -qf /usr/share/icons/hicolor 2>/dev/null || true
+    fi
+    if [ -x /usr/bin/update-desktop-database ]; then
+        update-desktop-database -q /usr/share/applications 2>/dev/null || true
+    fi
+    if [ -x /usr/bin/appstreamcli ]; then
+        appstreamcli refresh --force >/dev/null 2>&1 || true
     fi
 fi
 

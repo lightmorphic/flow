@@ -1,5 +1,5 @@
 Name:           lightmorphic-flow
-Version:        0.2.0
+Version:        0.2.1
 Release:        1%{?dist}
 Summary:        Share one mouse, keyboard and clipboard between Linux computers
 
@@ -82,21 +82,30 @@ install -d %{buildroot}%{_prefix}/lib/modules-load.d
 printf 'uinput\n' > %{buildroot}%{_prefix}/lib/modules-load.d/lmflow.conf
 
 install -d %{buildroot}%{_datadir}/applications
-cat > %{buildroot}%{_datadir}/applications/lmflow.desktop <<'DESK'
+cat > %{buildroot}%{_datadir}/applications/uk.lightmorph.Flow.desktop <<'DESK'
 [Desktop Entry]
 Type=Application
 Name=Lightmorphic Flow
 Comment=Share one mouse, keyboard and clipboard between computers
 Exec=lmflow gui
-Icon=lmflow
+Icon=uk.lightmorph.Flow
 Terminal=false
-Categories=Utility;Settings;HardwareSettings;
+Categories=Utility;
 Keywords=mouse;keyboard;clipboard;kvm;share;
+StartupNotify=true
 DESK
 
+install -d %{buildroot}%{_datadir}/metainfo
+install -m 0644 packaging/uk.lightmorph.Flow.metainfo.xml %{buildroot}%{_datadir}/metainfo/
+
 install -d %{buildroot}%{_datadir}/icons/hicolor/scalable/apps
-install -m 0644 packaging/lmflow.svg \
-    %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/lmflow.svg
+install -m 0644 packaging/uk.lightmorph.Flow.svg \
+    %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/uk.lightmorph.Flow.svg
+for s in 48 64 128 256 512; do
+    install -d %{buildroot}%{_datadir}/icons/hicolor/${s}x${s}/apps
+    install -m 0644 packaging/icons/$s/uk.lightmorph.Flow.png \
+        %{buildroot}%{_datadir}/icons/hicolor/${s}x${s}/apps/uk.lightmorph.Flow.png
+done
 
 %post
 getent group input >/dev/null || groupadd -r input || :
@@ -133,10 +142,15 @@ fi
 %{userunitdir}/lmflow-client.service
 %{udevruledir}/60-lmflow.rules
 %{_prefix}/lib/modules-load.d/lmflow.conf
-%{_datadir}/applications/lmflow.desktop
-%{_datadir}/icons/hicolor/scalable/apps/lmflow.svg
+%{_datadir}/applications/uk.lightmorph.Flow.desktop
+%{_datadir}/metainfo/uk.lightmorph.Flow.metainfo.xml
+%{_datadir}/icons/hicolor/scalable/apps/uk.lightmorph.Flow.svg
+%{_datadir}/icons/hicolor/*/apps/uk.lightmorph.Flow.png
 
 %changelog
+* Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.2.1-1
+- Proper application icon and a listing in the software centre
+
 * Wed Sep 17 2025 Lightmorphic <github@lightmorphic.com> - 0.2.0-1
 - Finds other computers on the network by itself
 - Drives up to four machines at once, one on each screen edge
