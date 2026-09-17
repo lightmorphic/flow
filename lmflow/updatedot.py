@@ -22,18 +22,18 @@ COLOURS = {
 RING_TRACK = (0.631, 0.631, 0.667, 0.55)
 TEXT_SIZE = 12
 PAD = 4          # breathing room around the dot, not part of its diameter
+# The house standard says twice the text height, but in the header bar opposite
+# the logo - where Charlie wants it - that reads far too big, so two thirds.
+DOT_SCALE = 2 / 3
 
 
 class UpdateDot(Gtk.Box):
     """The version number, then the one dot. Nothing else."""
 
     def __init__(self, log=print):
-        super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        self.set_halign(Gtk.Align.END)
-        self.set_margin_end(16)
-        self.set_margin_bottom(12)
-        self.set_margin_top(2)
-        self._diameter = TEXT_SIZE * 2
+        super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.set_valign(Gtk.Align.CENTER)
+        self._diameter = round(TEXT_SIZE * 2 * DOT_SCALE)
         self.set_valign(Gtk.Align.CENTER)
         self.log = log
 
@@ -70,7 +70,7 @@ class UpdateDot(Gtk.Box):
     def _size_the_dot(self, label):
         _minimum, natural, _mb, _nb = label.measure(Gtk.Orientation.VERTICAL, -1)
         text_height = natural or TEXT_SIZE * 4 // 3
-        self._diameter = text_height * 2
+        self._diameter = round(text_height * 2 * DOT_SCALE)
         box = self._diameter + PAD          # room for the antialiased edge
         self.area.set_content_width(box)
         self.area.set_content_height(box)
