@@ -33,17 +33,23 @@ Pure Python 3, no libraries to install, about 1,700 lines.
 ## Install (on every machine)
 
 ```
-sudo apt install ./lightmorphic-flow_0.4.1_all.deb
+sudo apt install ./lightmorphic-flow_0.5.0_all.deb
 ```
 
 That puts everything in place, including permission to read the mouse and
-keyboard, and adds you to the `input` group. **Log out and back in once**, and
-that is the whole install.
+keyboard, which takes effect straight away. No logging out, and nothing else
+to do.
+
+That permission is given to whoever is signed in at the computer, which is what
+makes it immediate. It also means any program you run could read what you type.
+On a machine with one person using it that is a fair trade; on a shared machine,
+delete the second line of `/usr/lib/udev/rules.d/60-lmflow.rules` and add
+yourself to the `input` group instead.
 
 On Fedora, openSUSE and anything else that uses `.rpm`:
 
 ```
-sudo dnf install ./lightmorphic-flow-0.4.1-1.noarch.rpm
+sudo dnf install ./lightmorphic-flow-0.5.0-1.noarch.rpm
 ```
 
 To build either package yourself:
@@ -54,7 +60,7 @@ To build either package yourself:
 ```
 
 On a Linux that does not use `.deb`, install into your home folder instead with
-`./install.sh`, then `lmflow setup`, then log out and back in.
+`./install.sh`, then `lmflow setup`.
 
 ## Setting it up
 

@@ -1,5 +1,5 @@
 Name:           lightmorphic-flow
-Version:        0.4.1
+Version:        0.5.0
 Release:        1%{?dist}
 Summary:        Share one mouse, keyboard and clipboard between Linux computers
 
@@ -77,9 +77,18 @@ done
 
 install -d %{buildroot}%{udevruledir}
 cat > %{buildroot}%{udevruledir}/60-lmflow.rules <<'RULE'
-# Installed by Lightmorphic Flow: let members of the 'input' group send
-# keystrokes and pointer movement to this machine.
-KERNEL=="uinput", MODE="0660", GROUP="input", OPTIONS+="static_node=uinput"
+# Installed by Lightmorphic Flow.
+#
+# "uaccess" hands the device to whoever is signed in at this computer, the
+# moment the rule is installed - no group membership and no logging out. The
+# group is kept as a fallback for a machine where that does not apply, such as
+# a remote or headless session.
+#
+# This does mean any program you run can read what you type. On a computer with
+# one user that is the trade for not having to log out; on a shared machine,
+# delete the second line and use the group instead.
+KERNEL=="uinput", MODE="0660", GROUP="input", TAG+="uaccess", OPTIONS+="static_node=uinput"
+SUBSYSTEM=="input", KERNEL=="event*", MODE="0660", GROUP="input", TAG+="uaccess"
 RULE
 
 install -d %{buildroot}%{_prefix}/lib/modules-load.d
@@ -136,16 +145,7 @@ for candidate in "$SUDO_USER" "$PKEXEC_UID"; do
     [ -n "$candidate" ] || continue
     if ! id -nG "$candidate" 2>/dev/null | tr ' ' '\n' | grep -qx input; then
         usermod -aG input "$candidate" || :
-        echo ""
-        echo "  +------------------------------------------------------------+"
-        echo "  |  LIGHTMORPHIC FLOW IS NOT READY YET                        |"
-        echo "  |                                                            |"
-        echo "  |  You must LOG OUT and LOG BACK IN before it can read your   |"
-        echo "  |  mouse and keyboard. Restarting the computer does it too.   |"
-        echo "  |                                                            |"
-        echo "  |  Nothing else is needed, and only this once.                |"
-        echo "  +------------------------------------------------------------+"
-        echo ""
+        echo "Lightmorphic Flow: added $candidate to the 'input' group as a fallback."
     fi
 done
 modprobe uinput >/dev/null 2>&1 || :
@@ -154,6 +154,10 @@ if [ -d /run/udev ]; then
     udevadm trigger --subsystem-match=input --subsystem-match=misc >/dev/null 2>&1 || :
 fi
 systemctl daemon-reload >/dev/null 2>&1 || :
+echo ""
+echo "  Lightmorphic Flow is ready. Open it from your applications."
+echo "  If it tells you it cannot read your mouse, log out and back in once."
+echo ""
 
 %postun
 if [ -d /run/udev ]; then
@@ -177,6 +181,9 @@ fi
 %{_datadir}/icons/hicolor/*/apps/uk.lightmorph.Flow*.png
 
 %changelog
+* Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.5.0-1
+- Works the moment it is installed; no logging out
+
 * Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.4.1-1
 - Screenshots and a proper listing in every software centre
 

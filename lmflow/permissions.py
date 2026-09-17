@@ -63,13 +63,12 @@ HEADLINE = {
 
 BODY = {
     NEEDS_RELOGIN: (
-        "Lightmorphic Flow is installed, but it cannot read your mouse and "
-        "keyboard yet.\n\n"
-        "Installing it gave you permission, and your computer only hands that "
-        "permission out when you sign in. This session started before it was "
-        "given, so it is still working from the old list.\n\n"
+        "Lightmorphic Flow cannot read your mouse and keyboard yet.\n\n"
+        "It normally takes effect the moment it is installed. On this computer "
+        "that has not happened — which usually means this is a remote or "
+        "unusual session, rather than someone sitting at the machine.\n\n"
         "Log out and log back in — or restart the computer — and it will work. "
-        "Nothing else is needed, and you will not have to do this again."
+        "You will not have to do this again."
     ),
     NEEDS_SETUP: (
         "Lightmorphic Flow cannot read your mouse and keyboard.\n\n"

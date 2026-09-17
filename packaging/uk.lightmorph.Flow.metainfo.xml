@@ -80,6 +80,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.5.0" date="2026-09-17">
+      <description>
+        <p>It works the moment it is installed. No logging out and back in.</p>
+      </description>
+    </release>
     <release version="0.4.1" date="2026-09-17">
       <description>
         <p>Screenshots and a proper listing in every software centre.</p>

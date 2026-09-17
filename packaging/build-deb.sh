@@ -45,9 +45,18 @@ chmod 0644 "$stage"/usr/lib/systemd/user/*.service
 
 install -d "$stage/usr/lib/udev/rules.d"
 cat > "$stage/usr/lib/udev/rules.d/60-lmflow.rules" <<'RULE'
-# Installed by lmflow: let members of the 'input' group send keystrokes
-# and pointer movement to this machine.
-KERNEL=="uinput", MODE="0660", GROUP="input", OPTIONS+="static_node=uinput"
+# Installed by Lightmorphic Flow.
+#
+# "uaccess" hands the device to whoever is signed in at this computer, the
+# moment the rule is installed - no group membership and no logging out. The
+# group is kept as a fallback for a machine where that does not apply, such as
+# a remote or headless session.
+#
+# This does mean any program you run can read what you type. On a computer with
+# one user that is the trade for not having to log out; on a shared machine,
+# delete the second line and use the group instead.
+KERNEL=="uinput", MODE="0660", GROUP="input", TAG+="uaccess", OPTIONS+="static_node=uinput"
+SUBSYSTEM=="input", KERNEL=="event*", MODE="0660", GROUP="input", TAG+="uaccess"
 RULE
 chmod 0644 "$stage/usr/lib/udev/rules.d/60-lmflow.rules"
 
@@ -150,16 +159,7 @@ if [ "$1" = "configure" ]; then
         [ -n "$candidate" ] || continue
         if ! id -nG "$candidate" 2>/dev/null | tr ' ' '\n' | grep -qx input; then
             adduser "$candidate" input >/dev/null 2>&1 || usermod -aG input "$candidate" || true
-            echo ""
-            echo "  +------------------------------------------------------------+"
-            echo "  |  LIGHTMORPHIC FLOW IS NOT READY YET                        |"
-            echo "  |                                                            |"
-            echo "  |  You must LOG OUT and LOG BACK IN before it can read your   |"
-            echo "  |  mouse and keyboard. Restarting the computer does it too.   |"
-            echo "  |                                                            |"
-            echo "  |  Nothing else is needed, and only this once.                |"
-            echo "  +------------------------------------------------------------+"
-            echo ""
+            echo "Lightmorphic Flow: added $candidate to the 'input' group as a fallback."
         fi
     done
 
@@ -169,6 +169,10 @@ if [ "$1" = "configure" ]; then
         udevadm trigger --subsystem-match=input --subsystem-match=misc >/dev/null 2>&1 || true
     fi
     systemctl daemon-reload >/dev/null 2>&1 || true
+    echo ""
+    echo "  Lightmorphic Flow is ready. Open it from your applications."
+    echo "  If it tells you it cannot read your mouse, log out and back in once."
+    echo ""
     if [ -x /usr/bin/gtk-update-icon-cache ]; then
         gtk-update-icon-cache -qf /usr/share/icons/hicolor 2>/dev/null || true
     fi
@@ -192,6 +196,10 @@ if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
         udevadm control --reload-rules >/dev/null 2>&1 || true
     fi
     systemctl daemon-reload >/dev/null 2>&1 || true
+    echo ""
+    echo "  Lightmorphic Flow is ready. Open it from your applications."
+    echo "  If it tells you it cannot read your mouse, log out and back in once."
+    echo ""
 fi
 
 if [ "$1" = "purge" ]; then

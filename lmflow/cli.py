@@ -11,8 +11,17 @@ import sys
 from . import __version__, config, discovery, pairing, screen
 from .linux_input import list_devices
 
-UDEV_RULE = """# Installed by lmflow
-KERNEL=="uinput", MODE="0660", GROUP="input", OPTIONS+="static_node=uinput"
+UDEV_RULE = """# Installed by Lightmorphic Flow.
+#
+# "uaccess" hands the device to whoever is signed in at this computer, the
+# moment the rule is installed - no group membership and no logging out. The
+# group is kept as a fallback for a machine where that does not apply.
+#
+# This does mean any program you run can read what you type. On a computer with
+# one user that is the trade for not having to log out; on a shared machine,
+# delete the second line and use the group instead.
+KERNEL=="uinput", MODE="0660", GROUP="input", TAG+="uaccess", OPTIONS+="static_node=uinput"
+SUBSYSTEM=="input", KERNEL=="event*", MODE="0660", GROUP="input", TAG+="uaccess"
 """
 UDEV_PATH = "/etc/udev/rules.d/60-lmflow.rules"
 
@@ -38,7 +47,8 @@ udevadm trigger --subsystem-match=input --subsystem-match=misc
     if result.returncode != 0:
         print("Setup did not finish.", file=sys.stderr)
         return 1
-    print("\nDone. Log out and back in once, then run:  lmflow server")
+    print("\nDone. Open Lightmorphic Flow, or run:  lmflow server")
+    print("If it says it cannot read your mouse, log out and back in once.")
     return 0
 
 

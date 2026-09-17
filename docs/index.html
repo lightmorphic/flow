@@ -51,7 +51,7 @@
       "description": "One keyboard and mouse driving up to four other Linux computers on the same network, one on each edge of your screen, with a shared text clipboard. Screen edges and hot corners are left to your desktop: only a deliberate push crosses to another machine.",
       "url": "https://flow.lightmorphic.com/",
       "downloadUrl": "https://github.com/lightmorphic/flow/releases",
-      "softwareVersion": "0.4.1",
+      "softwareVersion": "0.5.0",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "GBP" },
       "license": "https://www.gnu.org/licenses/gpl-3.0.html",
       "author": { "@id": "https://lightmorphic.com/#organization" },
@@ -229,7 +229,7 @@
       <li>Python 3.9 or newer, which every current Linux already has.</li>
       <li>GTK 4 and libadwaita for the settings window — also already there on a modern desktop.</li>
       <li><code>wl-clipboard</code> on Wayland, or <code>xclip</code> on X11, for the shared clipboard.</li>
-      <li>One log out and back in after installing, so the new permission takes effect.</li>
+      <li>Nothing else. The permission it needs is set up by the installer and works straight away.</li>
     </ul>
     <p class="dl-help">If the computers are not on the same network — over a private tunnel, say — the announcements will not reach, and you paste a pairing code across instead.</p>
   </div>
@@ -329,11 +329,11 @@
 <section id="download" class="download" aria-labelledby="download-title">
   <div class="wrap">
     <h2 id="download-title">Download</h2>
-    <p class="section-intro">Install it on every computer you want to join up, then log out and back in once.</p>
+    <p class="section-intro">Install it on every computer you want to join up. There is no second step.</p>
     <div class="panel">
       <div class="dl-row">
         <a class="btn primary" href="https://github.com/lightmorphic/flow/releases">Get the latest release</a>
-        <span class="dl-meta">Debian package and RPM · version 0.4.1 · GPL-3.0</span>
+        <span class="dl-meta">Debian package and RPM · version 0.5.0 · GPL-3.0</span>
       </div>
       <p class="dl-help">Debian, Ubuntu and Mint take the <code>.deb</code>. Fedora and openSUSE take the <code>.rpm</code>. Both install the program, the settings window, the background service and the one permission it needs.</p>
       <p class="dl-help">Prefer to build it yourself? The whole thing is on <a href="https://github.com/lightmorphic/flow">GitHub</a>, and the two build scripts are in <code>packaging/</code>.</p>
