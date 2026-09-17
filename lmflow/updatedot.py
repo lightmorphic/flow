@@ -23,21 +23,19 @@ TEXT_SIZE = 12
 
 
 class UpdateDot(Gtk.Box):
-    """Name and version on the left, one dot on the right. Nothing else."""
+    """The version number, then the one dot. Nothing else."""
 
     def __init__(self, log=print):
-        super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        self.set_halign(Gtk.Align.END)
-        self.set_margin_end(18)
-        self.set_margin_bottom(14)
-        self.set_margin_top(4)
+        super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.set_valign(Gtk.Align.CENTER)
         self.log = log
 
         self.label = Gtk.Label(valign=Gtk.Align.CENTER, use_markup=True)
         self.label.set_markup(
             f'<a href="{up.WEBSITE}"><span size="{TEXT_SIZE * 1000}" '
-            f'underline="none">Lightmorphic Flow {__version__}</span></a>')
+            f'underline="none">{__version__}</span></a>')
         self.label.add_css_class("dim")
+        self.label.set_tooltip_text(up.WEBSITE)
         self.append(self.label)
 
         size = TEXT_SIZE * 2 + 6                     # dot is twice the text height

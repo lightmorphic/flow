@@ -43,16 +43,15 @@ class Window(Adw.ApplicationWindow):
 
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         header = Adw.HeaderBar()
-        self.power = Gtk.Switch(valign=Gtk.Align.CENTER, tooltip_text="Turn sharing on")
-        self.power.connect("notify::active", self._on_power)
-        header.pack_end(self.power)
+        header.set_title_widget(Gtk.Label(label=""))
+        header.pack_start(self._brand())
+        header.pack_end(UpdateDot())
         box.append(header)
 
         scroller = Gtk.ScrolledWindow(vexpand=True)
         self.page = Adw.PreferencesPage()
         scroller.set_child(self.page)
         box.append(scroller)
-        box.append(UpdateDot())
         self.toasts.set_child(box)
 
         self.page.add(self._group_role())
@@ -69,8 +68,26 @@ class Window(Adw.ApplicationWindow):
         GLib.timeout_add_seconds(2, self._tick)
 
     # ---------------------------------------------------------------- groups
+    def _brand(self):
+        """Logo and name, top left."""
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        display = Gdk.Display.get_default()
+        theme = Gtk.IconTheme.get_for_display(display) if display else None
+        name = "lmflow" if theme and theme.has_icon("lmflow") else "input-mouse-symbolic"
+        icon = Gtk.Image.new_from_icon_name(name)
+        icon.set_pixel_size(22)
+        row.append(icon)
+        title = Gtk.Label(label="Lightmorphic Flow", valign=Gtk.Align.CENTER)
+        title.add_css_class("title-4")
+        row.append(title)
+        return row
+
     def _group_role(self):
         group = Adw.PreferencesGroup(title="This computer")
+        self.power = Adw.SwitchRow(title="Sharing is on",
+                                   subtitle="Runs in the background from now on")
+        self.power.connect("notify::active", self._on_power)
+        group.add(self.power)
         self.role = Adw.ComboRow(
             title="Role",
             subtitle="Share means the mouse and keyboard live here",
