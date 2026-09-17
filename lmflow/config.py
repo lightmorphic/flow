@@ -87,12 +87,16 @@ def open_pairing(seconds=120):
 
 
 def pairing_open() -> bool:
+    return pairing_seconds_left() > 0
+
+
+def pairing_seconds_left() -> int:
     import time
     try:
         with open(PAIR_PATH, encoding="ascii") as fh:
-            return time.time() < float(fh.read().strip())
+            return max(0, int(float(fh.read().strip()) - time.time()))
     except (OSError, ValueError):
-        return False
+        return 0
 
 
 def close_pairing():

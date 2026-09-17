@@ -1,5 +1,5 @@
 Name:           lightmorphic-flow
-Version:        0.5.1
+Version:        0.5.2
 Release:        1%{?dist}
 Summary:        Share one mouse, keyboard and clipboard between Linux computers
 
@@ -182,6 +182,9 @@ fi
 %{_datadir}/icons/hicolor/*/apps/uk.lightmorph.Flow*.png
 
 %changelog
+* Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.5.2-1
+- Allow counts down in the row; no popups
+
 * Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.5.1-1
 - The tray icon actually appears, with connect and disconnect
 

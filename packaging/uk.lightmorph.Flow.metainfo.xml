@@ -80,6 +80,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.5.2" date="2026-09-17">
+      <description>
+        <p>Allowing a new computer counts down in the row itself. No popups.</p>
+      </description>
+    </release>
     <release version="0.5.1" date="2026-09-17">
       <description>
         <p>The tray icon appears without waiting for the next login, and its menu connects and disconnects.</p>

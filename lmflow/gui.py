@@ -18,7 +18,6 @@ EDGES = ["right", "left", "top", "bottom"]
 EDGE_LABELS = ["To my right", "To my left", "Above me", "Below me"]
 PAIR_SECONDS = 120
 CSS = b"""
-toast > widget { background: #1f7a3d; color: #ffffff; }
 .dim { opacity: 0.65; }
 """
 
@@ -39,9 +38,8 @@ class Window(Adw.ApplicationWindow):
         self._rows = []
         self._code = None
         self._found_signature = None
-
-        self.toasts = Adw.ToastOverlay()
-        self.set_content(self.toasts)
+        self._allow_row = None
+        self._allow_button = None
 
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         header = Adw.HeaderBar()
@@ -57,7 +55,7 @@ class Window(Adw.ApplicationWindow):
         # nests two of them and neither ends up scrolling properly.
         self.page = Adw.PreferencesPage(vexpand=True)
         box.append(self.page)
-        self.toasts.set_child(box)
+        self.set_content(box)
 
         self.warning = Adw.PreferencesGroup()
         self._warning_row = None
@@ -76,7 +74,7 @@ class Window(Adw.ApplicationWindow):
 
         self._rebuild_machines()
         self._refresh_power()
-        GLib.timeout_add_seconds(2, self._tick)
+        GLib.timeout_add_seconds(1, self._tick)
         GLib.idle_add(self._check_permission)
         GLib.idle_add(self._start_tray)
 
@@ -268,15 +266,13 @@ class Window(Adw.ApplicationWindow):
                 empty.add_css_class("dim")
                 self._add_row(empty)
 
-            allow = Adw.ActionRow(
-                title="Allow a new computer",
-                subtitle="Opens the door for two minutes")
-            button = Gtk.Button(label="Allow", valign=Gtk.Align.CENTER)
-            button.add_css_class("suggested-action")
-            button.connect("clicked", self._allow)
-            allow.add_suffix(button)
-            allow.set_activatable_widget(button)
-            self._add_row(allow)
+            self._allow_row = Adw.ActionRow(title="Allow a new computer")
+            self._allow_button = Gtk.Button(valign=Gtk.Align.CENTER)
+            self._allow_button.connect("clicked", self._allow)
+            self._allow_row.add_suffix(self._allow_button)
+            self._allow_row.set_activatable_widget(self._allow_button)
+            self._add_row(self._allow_row)
+            self._show_allow()
         else:
             self.machines.set_title("Computer controlling me")
             self.machines.set_description(
@@ -330,7 +326,7 @@ class Window(Adw.ApplicationWindow):
         inner = Adw.ActionRow(title=self._code, subtitle="")
         inner.set_title_lines(3)
         copy = Gtk.Button(icon_name="edit-copy-symbolic", valign=Gtk.Align.CENTER)
-        copy.connect("clicked", lambda _b: self._copy(inner.get_title()))
+        copy.connect("clicked", lambda b: self._copy(b, inner.get_title()))
         inner.add_suffix(copy)
         row.add_row(inner)
 
@@ -346,10 +342,6 @@ class Window(Adw.ApplicationWindow):
             return
         self.cfg[key] = value
         config.save(self.cfg)
-        self.tick()
-
-    def tick(self, text="✓"):
-        self.toasts.add_toast(Adw.Toast(title=text, timeout=1))
 
     def _on_role(self, widget, _param):
         self._save("role", "server" if widget.get_selected() == 0 else "client")
@@ -368,7 +360,6 @@ class Window(Adw.ApplicationWindow):
             free = [e for e in EDGES if e not in {p.get("edge") for p in peers.values()}]
             peers[other]["edge"] = free[0] if free else "right"
         config.save(self.cfg)
-        self.tick()
         if clash:
             GLib.idle_add(self._rebuild_machines)
 
@@ -376,11 +367,31 @@ class Window(Adw.ApplicationWindow):
         self.cfg.get("peers", {}).pop(ident, None)
         config.save(self.cfg)
         self._rebuild_machines()
-        self.tick()
 
     def _allow(self, _button):
-        config.open_pairing(PAIR_SECONDS)
-        self.tick("✓ open for two minutes")
+        if config.pairing_open():
+            config.close_pairing()
+        else:
+            config.open_pairing(PAIR_SECONDS)
+        self._show_allow()
+
+    def _show_allow(self):
+        """The countdown lives in the row, not in a popup."""
+        row, button = self._allow_row, self._allow_button
+        if row is None or button is None:
+            return
+        left = config.pairing_seconds_left()
+        if left > 0:
+            row.set_subtitle(f"Open for {left // 60}:{left % 60:02d} — "
+                             "turn on Lightmorphic Flow on the other computer now")
+            button.set_label("Stop")
+            button.remove_css_class("suggested-action")
+            button.add_css_class("destructive-action")
+        else:
+            row.set_subtitle("Opens the door for two minutes")
+            button.set_label("Allow")
+            button.remove_css_class("destructive-action")
+            button.add_css_class("suggested-action")
 
     def _choose_server(self, entry):
         self.cfg["server_id"] = entry["id"]
@@ -389,22 +400,33 @@ class Window(Adw.ApplicationWindow):
         self.cfg["token"] = ""
         config.save(self.cfg)
         self._rebuild_machines()
-        self.tick()
 
-    def _copy(self, text):
+    def _copy(self, button, text):
         Gdk.Display.get_default().get_clipboard().set(text)
-        self.tick()
+        button.set_icon_name("object-select-symbolic")
+        GLib.timeout_add_seconds(2, self._uncopy, button)
+
+    def _uncopy(self, button):
+        button.set_icon_name("edit-copy-symbolic")
+        return False
 
     def _apply_code(self, entry):
         try:
             self.cfg = pairing.apply_code(entry.get_text())
         except Exception:
-            self.tick("That code did not look right")
+            entry.add_css_class("error")
+            entry.set_title("That code did not look right")
+            GLib.timeout_add_seconds(4, self._clear_code_error, entry)
             return
+        entry.remove_css_class("error")
         entry.set_text("")
         self.role.set_selected(1)
         self._rebuild_machines()
-        self.tick()
+
+    def _clear_code_error(self, entry):
+        entry.remove_css_class("error")
+        entry.set_title("Paste a code from another computer")
+        return False
 
     # ---------------------------------------------------------------- daemon
     def _unit(self):
@@ -418,11 +440,10 @@ class Window(Adw.ApplicationWindow):
             _systemctl("stop", other)
             result = _systemctl("start", self._unit())
             if result is None or result.returncode != 0:
-                self.tick("Could not start it")
+                print("could not start the background service", file=sys.stderr)
                 return
         else:
             _systemctl("stop", self._unit())
-        self.tick()
 
     def _refresh_power(self):
         result = _systemctl("is-active", self._unit())
@@ -447,6 +468,7 @@ class Window(Adw.ApplicationWindow):
                 changed = True
         if changed:
             self._rebuild_machines()
+        self._show_allow()
         self._refresh_power()
         was_ok = getattr(self, "_permission_ok", True)
         self._permission_ok = permissions.message() is None
