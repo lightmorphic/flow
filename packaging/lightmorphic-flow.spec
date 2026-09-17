@@ -1,5 +1,5 @@
 Name:           lightmorphic-flow
-Version:        0.3.5
+Version:        0.4.0
 Release:        1%{?dist}
 Summary:        Share one mouse, keyboard and clipboard between Linux computers
 
@@ -136,8 +136,16 @@ for candidate in "$SUDO_USER" "$PKEXEC_UID"; do
     [ -n "$candidate" ] || continue
     if ! id -nG "$candidate" 2>/dev/null | tr ' ' '\n' | grep -qx input; then
         usermod -aG input "$candidate" || :
-        echo "Lightmorphic Flow: added $candidate to the 'input' group."
-        echo "Lightmorphic Flow: log out and back in once before starting it."
+        echo ""
+        echo "  +------------------------------------------------------------+"
+        echo "  |  LIGHTMORPHIC FLOW IS NOT READY YET                        |"
+        echo "  |                                                            |"
+        echo "  |  You must LOG OUT and LOG BACK IN before it can read your   |"
+        echo "  |  mouse and keyboard. Restarting the computer does it too.   |"
+        echo "  |                                                            |"
+        echo "  |  Nothing else is needed, and only this once.                |"
+        echo "  +------------------------------------------------------------+"
+        echo ""
     fi
 done
 modprobe uinput >/dev/null 2>&1 || :
@@ -169,6 +177,9 @@ fi
 %{_datadir}/icons/hicolor/*/apps/uk.lightmorph.Flow*.png
 
 %changelog
+* Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.4.0-1
+- Says plainly, in a dialog you must acknowledge, that you have to log out
+
 * Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.3.5-1
 - The doctor reports the tray library correctly
 

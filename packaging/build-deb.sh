@@ -150,8 +150,16 @@ if [ "$1" = "configure" ]; then
         [ -n "$candidate" ] || continue
         if ! id -nG "$candidate" 2>/dev/null | tr ' ' '\n' | grep -qx input; then
             adduser "$candidate" input >/dev/null 2>&1 || usermod -aG input "$candidate" || true
-            echo "Lightmorphic Flow: added $candidate to the 'input' group."
-            echo "Lightmorphic Flow: log out and back in once before starting it."
+            echo ""
+            echo "  +------------------------------------------------------------+"
+            echo "  |  LIGHTMORPHIC FLOW IS NOT READY YET                        |"
+            echo "  |                                                            |"
+            echo "  |  You must LOG OUT and LOG BACK IN before it can read your   |"
+            echo "  |  mouse and keyboard. Restarting the computer does it too.   |"
+            echo "  |                                                            |"
+            echo "  |  Nothing else is needed, and only this once.                |"
+            echo "  +------------------------------------------------------------+"
+            echo ""
         fi
     done
 

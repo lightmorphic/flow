@@ -9,7 +9,7 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk               # noqa: E402
 
-from . import __version__, config, status         # noqa: E402
+from . import __version__, config, permissions, status   # noqa: E402
 
 ICON_HOME = "uk.lightmorph.Flow"
 ICON_AWAY = "uk.lightmorph.Flow-away"
@@ -62,6 +62,7 @@ class Tray:
     def _tick(self):
         state = status.read()
         signature = (state["running"], bool(state["active"]),
+                     permissions.state(),
                      (state["active"] or {}).get("id"),
                      tuple((p["id"], p["name"], p["edge"]) for p in state["peers"]),
                      self._service_active())
@@ -76,7 +77,10 @@ class Tray:
 
         active = state.get("active")
         running = self._service_active()
-        if not running:
+        trouble = permissions.message()
+        if trouble is not None:
+            headline = trouble[0]
+        elif not running:
             headline = "Sharing is off"
         elif active:
             headline = f"Pointer on {active['name']}"
@@ -89,8 +93,16 @@ class Tray:
         self.menu.append(head)
         self.menu.append(Gtk.SeparatorMenuItem())
 
+        if trouble is not None:
+            why = Gtk.MenuItem(label="What do I need to do?")
+            why.connect("activate", self._open_settings)
+            self.menu.append(why)
+            self.menu.append(Gtk.SeparatorMenuItem())
+
         peers = state.get("peers", [])
-        if running and peers:
+        if trouble is not None:
+            pass
+        elif running and peers:
             for peer in peers:
                 where = EDGE_SAY.get(peer.get("edge"), "")
                 item = Gtk.MenuItem(label=f"Go to {peer['name']} ({where})")

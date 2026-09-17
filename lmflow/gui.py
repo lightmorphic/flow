@@ -10,7 +10,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, GLib, Gtk          # noqa: E402
 
-from . import config, discovery, pairing, screen, status  # noqa: E402
+from . import config, discovery, pairing, permissions, screen, status  # noqa: E402
 from .updatedot import UpdateDot                        # noqa: E402
 
 EDGES = ["right", "left", "top", "bottom"]
@@ -58,6 +58,10 @@ class Window(Adw.ApplicationWindow):
         box.append(scroller)
         self.toasts.set_child(box)
 
+        self.warning = Adw.PreferencesGroup()
+        self._warning_row = None
+        self._permission_ok = True
+        self.page.add(self.warning)
         self.page.add(self._group_role())
         self.machines = Adw.PreferencesGroup()
         self.page.add(self.machines)
@@ -72,6 +76,54 @@ class Window(Adw.ApplicationWindow):
         self._rebuild_machines()
         self._refresh_power()
         GLib.timeout_add_seconds(2, self._tick)
+        GLib.idle_add(self._check_permission)
+
+    # ------------------------------------------------------------ permission
+    def _check_permission(self):
+        """Nobody should meet this as a mystery. It is a dialog with an OK."""
+        message = permissions.message()
+        self._permission_ok = message is None
+        self._rebuild_warning()
+        if message is None:
+            return False
+        headline, body = message
+        try:
+            dialog = Adw.AlertDialog(heading=headline, body=body)
+            dialog.add_response("ok", "OK")
+            dialog.set_response_appearance("ok", Adw.ResponseAppearance.SUGGESTED)
+            dialog.set_default_response("ok")
+            dialog.set_close_response("ok")
+            dialog.present(self)
+        except (AttributeError, TypeError):
+            dialog = Adw.MessageDialog(transient_for=self, modal=True,
+                                       heading=headline, body=body)
+            dialog.add_response("ok", "OK")
+            dialog.set_default_response("ok")
+            dialog.set_close_response("ok")
+            dialog.present()
+        return False
+
+    def _rebuild_warning(self):
+        """And it stays on screen until it is actually fixed."""
+        if self._warning_row is not None:
+            self.warning.remove(self._warning_row)
+            self._warning_row = None
+        if getattr(self, "_permission_ok", True):
+            self.warning.set_title("")
+            return
+        headline, body = permissions.message()
+        self.warning.set_title("Not working yet")
+        row = Adw.ActionRow(title=headline,
+                            subtitle="Until you do, it cannot read your mouse "
+                                     "or keyboard. Click for the details.")
+        row.set_subtitle_lines(3)
+        button = Gtk.Button(label="Details", valign=Gtk.Align.CENTER)
+        button.add_css_class("suggested-action")
+        button.connect("clicked", lambda _b: self._check_permission())
+        row.add_suffix(button)
+        row.set_activatable_widget(button)
+        self.warning.add(row)
+        self._warning_row = row
 
     def _own_listener(self):
         """Listen here only while the service is not."""
@@ -376,6 +428,10 @@ class Window(Adw.ApplicationWindow):
         if changed:
             self._rebuild_machines()
         self._refresh_power()
+        was_ok = getattr(self, "_permission_ok", True)
+        self._permission_ok = permissions.message() is None
+        if was_ok != self._permission_ok:
+            self._rebuild_warning()
         return True
 
 

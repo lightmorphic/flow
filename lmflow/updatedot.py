@@ -63,7 +63,7 @@ class UpdateDot(Gtk.Box):
         self.label.add_css_class("flow-version")
         # The app has a website, so the version number links to it.
         self.label.set_markup(
-            f'<a href="{up.WEBSITE}" title="{up.WEBSITE}">{__version__}</a>')
+            f'<a href="{up.WEBSITE}" title="{up.WEBSITE}">v{__version__}</a>')
         self.append(self.label)
 
         box = DOT_PX + PAD
