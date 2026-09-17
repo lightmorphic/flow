@@ -54,6 +54,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.3.4" date="2026-09-17">
+      <description>
+        <p>The update dot appears on Fedora: the drawing library it needs is now asked for.</p>
+      </description>
+    </release>
     <release version="0.3.3" date="2026-09-17">
       <description>
         <p>A doctor command, and the update dot can no longer vanish silently.</p>

@@ -188,7 +188,17 @@ class UpdateDot(Gtk.Box):
         return 0.45 + 0.55 * (0.5 + 0.5 * math.cos(2 * math.pi * turn))
 
     # ------------------------------------------------------------- the paint
-    def _draw(self, _area, cr, width, height):
+    def _draw(self, area, cr, width, height):
+        try:
+            self._paint(cr, width, height)
+        except Exception as exc:                       # noqa: BLE001
+            if not getattr(self, "_draw_complained", False):
+                self._draw_complained = True
+                self.log(f"update dot cannot be drawn: {exc}. "
+                         "The cairo bindings for PyGObject are missing - install "
+                         "python3-gi-cairo on Debian or python3-cairo on Fedora.")
+
+    def _paint(self, cr, width, height):
         cx, cy = width / 2, height / 2
         radius = DOT_PX / 2
 

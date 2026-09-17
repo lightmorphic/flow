@@ -264,6 +264,14 @@ def cmd_doctor(_args):
         except Exception:
             print(f"{label:16} no")
 
+    try:
+        import gi._gi_cairo            # noqa: F401
+        import cairo                   # noqa: F401
+        print("cairo drawing    yes")
+    except ImportError:
+        print("cairo drawing    NO - the update dot cannot be drawn. Install "
+              "python3-gi-cairo (Debian) or python3-cairo (Fedora).")
+
     cfg = config.load()
     print(f"role             {cfg['role']}")
     print(f"computers known  {len(cfg.get('peers', {}))}")

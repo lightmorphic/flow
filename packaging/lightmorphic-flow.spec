@@ -1,5 +1,5 @@
 Name:           lightmorphic-flow
-Version:        0.3.3
+Version:        0.3.4
 Release:        1%{?dist}
 Summary:        Share one mouse, keyboard and clipboard between Linux computers
 
@@ -15,6 +15,8 @@ BuildArch:      noarch
 
 Requires:       python3 >= 3.9
 Requires:       python3-gobject
+# Without these the update dot is simply never drawn.
+Requires:       python3-cairo
 Requires:       gtk4
 Requires:       libadwaita
 Requires:       gtk3
@@ -167,6 +169,9 @@ fi
 %{_datadir}/icons/hicolor/*/apps/uk.lightmorph.Flow*.png
 
 %changelog
+* Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.3.4-1
+- Declare the cairo bindings the update dot is drawn with
+
 * Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.3.3-1
 - A doctor command, and the update dot can no longer vanish silently
 
