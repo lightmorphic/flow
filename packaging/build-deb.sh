@@ -92,7 +92,7 @@ Homepage: https://flow.lightmorphic.com
 Conflicts: deskmorphic
 Replaces: deskmorphic
 Provides: deskmorphic
-Maintainer: Charlie <claude@charlie.cx>
+Maintainer: Lightmorphic <github@lightmorphic.com>
 Description: Share one mouse, keyboard and clipboard between Linux computers
  Lightmorphic Flow lets one keyboard and mouse drive up to four other machines
  on the same network - one on each edge of your screen - and keeps the text

@@ -2,6 +2,13 @@
 
 [flow.lightmorphic.com](https://flow.lightmorphic.com)
 
+> **Beta.** This is an early release. It does what is described here, but it
+> has not been through much use on other people's machines yet, so expect
+> rough edges and do not lean on it for anything that matters. It takes over
+> your mouse and keyboard while the pointer is on another computer; closing
+> the program always gives them straight back, and `Ctrl+Alt+Shift+K` brings
+> everything home at once.
+
 One mouse, one keyboard and one clipboard across your Linux computers.
 Up to four others at once - one on each edge of your screen.
 Pure Python 3, no libraries to install, about 1,700 lines.

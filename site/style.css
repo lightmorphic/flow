@@ -1,0 +1,474 @@
+/* Flow: house style, its own layout.
+   Plain CSS, one self-hosted font, no framework, no external requests. */
+
+@font-face {
+  font-family: "Manrope";
+  src: url("fonts/Manrope-VariableFont_wght.ttf") format("truetype");
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  --bg: #09090b;  --fg: #fafafa;
+  --panel: #1b1d29;  --panel-border: rgba(255,255,255,.09);
+  --border: #27272a;  --muted: #1c1c1f;  --muted-fg: #a1a1aa;
+  --shadow-panel: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px -16px rgba(0,0,0,.6);
+
+  --accent: #fbc711;  --accent-hover: #ddaf0f;  --on-accent: #645007;
+  --accent-container: #4b3c05;  --on-accent-container: #fde694;
+
+  --brand-navy: #111827;
+  --link: #2295f1;
+  --success: #4bae4f;
+  --warning: #ffc006;
+
+  --radius: 0.875rem;
+  --panel-radius: 1.375rem;
+  --wrap: 68rem;
+
+  /* The accent yellow reads at 12.6:1 on this background, so it is the
+     focus ring here. */
+  --focus-ring: var(--accent);
+
+  /* The session-check panel keeps the brand navy deliberately: it is
+     identity, not a surface. Its own tokens, so components below carry
+     no raw colour. */
+  --check-bg: var(--brand-navy);
+  --check-fg: #fafafa;
+  --check-dim: #d4d4d8;
+  --check-label: #a1a1aa;
+  --check-line: rgba(255,255,255,.06);
+  --check-edge: rgba(255,255,255,.09);
+  --yes-bg: #4bae4f;  --on-yes: #0d1f0e;
+  --no-bg: #9e9d9e;   --on-no: #1a1a1a;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Manrope", system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { width: min(100% - 2.5rem, var(--wrap)); margin-inline: auto; }
+
+a { color: var(--link); }
+a:focus-visible, button:focus-visible, .btn:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.skip {
+  position: absolute; left: -9999px;
+  background: var(--panel); color: var(--fg);
+  padding: .75rem 1rem; border-radius: var(--radius); z-index: 10;
+}
+.skip:focus { left: 1rem; top: 1rem; }
+
+h1, h2, h3 { line-height: 1.2; margin: 0 0 .5rem; }
+h1 { font-size: clamp(2rem, 5vw, 3rem); font-weight: 700; letter-spacing: -.02em; }
+h2 { font-size: 1.75rem; font-weight: 600; letter-spacing: -.01em; }
+h3 { font-size: 1.0625rem; font-weight: 600; }
+p { margin: 0 0 1rem; }
+p:last-child { margin-bottom: 0; }
+
+/* ---- nav ---------------------------------------------------------- */
+
+.topnav {
+  position: sticky; top: 0; z-index: 5;
+  background: var(--bg);
+  border-bottom: 1px solid var(--panel-border);
+}
+.topnav-inner { display: flex; align-items: center; gap: 1rem; padding: .3rem 0; }
+/* Padding moved from the bar onto each link rather than just added on
+   top of it - a nav link's own clickable box was ~24px tall before
+   this, under the 44px a touch target wants; this keeps the bar close
+   to its old height while giving every link room of its own. */
+.brand {
+  display: inline-flex; align-items: center; gap: .5rem;
+  font-weight: 700; color: var(--fg); text-decoration: none;
+  letter-spacing: -.01em; padding: .65rem 0;
+}
+.nav-links { margin-left: auto; display: flex; align-items: center; gap: 1.25rem; }
+.nav-links a {
+  color: var(--muted-fg); text-decoration: none; font-size: .9375rem;
+  font-weight: 600; padding: .65rem 0;
+}
+.nav-links a:hover { color: var(--fg); }
+@media (max-width: 40rem) { .nav-links .hide-sm { display: none; } }
+
+/* ---- buttons ------------------------------------------------------ */
+
+.btn {
+  display: inline-flex; align-items: center; gap: .5rem;
+  border-radius: var(--radius);
+  padding: .7rem 1.15rem;
+  font: inherit; font-weight: 600;
+  text-decoration: none; cursor: pointer;
+  border: 1px solid transparent;
+}
+.btn.primary { background: var(--accent); color: var(--on-accent); }
+.btn.primary:hover { background: var(--accent-hover); }
+.btn.ghost { background: var(--muted); color: var(--fg); border-color: var(--border); }
+.btn.ghost:hover { border-color: var(--muted-fg); }
+
+/* ---- hero --------------------------------------------------------- */
+/* Uneven on purpose: the promise carries the weight, and the session
+   check sits beside it as the one thing to verify before downloading. */
+
+.hero { padding: 3.5rem 0 2rem; }
+.hero-grid {
+  display: grid; gap: 2rem;
+  grid-template-columns: 1.35fr 1fr;
+  align-items: center;
+}
+@media (max-width: 60rem) { .hero-grid { grid-template-columns: 1fr; } }
+
+.eyebrow {
+  display: inline-flex; align-items: center; gap: .5rem;
+  background: var(--accent-container); color: var(--on-accent-container);
+  border-radius: 999px; padding: .3rem .75rem;
+  font-size: .8125rem; font-weight: 700;
+  letter-spacing: .03em; text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+.lede { font-size: 1.125rem; color: var(--muted-fg); max-width: 46ch; }
+.hero-cta { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1.5rem; }
+.hero-note { margin-top: 1rem; font-size: .8125rem; color: var(--muted-fg); }
+
+/* The panel beside the headline: what this runs on, stated plainly. */
+.check {
+  background: var(--check-bg);
+  border: 1px solid var(--check-edge);
+  border-radius: var(--panel-radius);
+  box-shadow: var(--shadow-panel);
+  padding: 1.25rem;
+  color: var(--check-fg);
+}
+.check-title {
+  font-size: .8125rem; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--check-label); margin-bottom: .75rem;
+}
+.check-row { display: flex; align-items: flex-start; gap: .6rem; font-size: .9375rem; padding: .3rem 0; }
+.check-row .tag {
+  flex: none; font-weight: 700; border-radius: 999px;
+  padding: .05rem .5rem; font-size: .75rem;
+}
+.tag.yes { background: var(--yes-bg); color: var(--on-yes); }
+.tag.no  { background: var(--no-bg); color: var(--on-no); }
+.check-row span { color: var(--check-dim); }
+.check-row a { color: var(--accent); }
+
+/* ---- flow --------------------------------------------------------- */
+
+.flow-track { display: grid; gap: 1.25rem; grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 48rem) { .flow-track { grid-template-columns: 1fr; } }
+.flow-step { border-left: 3px solid var(--panel-border); padding: .1rem 0 .1rem 1rem; }
+.flow-step h3 { margin-bottom: .25rem; }
+.flow-step p { color: var(--muted-fg); font-size: .9375rem; }
+
+/* ---- panels / bento ------------------------------------------------ */
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  box-shadow: var(--shadow-panel);
+  padding: 1.5rem;
+}
+section { padding: 2.5rem 0; }
+section[id] { scroll-margin-top: 5.5rem; }
+.section-intro { color: var(--muted-fg); max-width: 60ch; margin-bottom: 1.5rem; }
+
+/* Columns rather than a grid, so a short card does not leave a hole
+   under it waiting for the row to end. Each card is as tall as its
+   own text and the next one starts immediately below. A grid cannot do
+   this: its rows are as tall as their tallest cell, which is what left
+   a gap under "Six languages". */
+.bento { columns: 2; column-gap: 1rem; }
+.bento > .panel {
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  margin-bottom: 1rem;
+}
+@media (max-width: 56rem) { .bento { columns: 1; } }
+.bento h3 { display: flex; align-items: center; gap: .5rem; }
+.bento p { color: var(--muted-fg); font-size: .9375rem; }
+.icon { flex: none; color: var(--accent); }
+
+/* ---- differences --------------------------------------------------- */
+
+.diff { display: grid; gap: 1rem; grid-template-columns: 1fr 1fr; }
+@media (max-width: 48rem) { .diff { grid-template-columns: 1fr; } }
+/* Grey, not amber. A coloured edge is allowed where it stands for
+   something (green for do, red for don't), but these two panels are
+   not warnings, so the colour was decoration, and the accent is never
+   decoration. */
+.diff .panel { border-left: 3px solid var(--panel-border); }
+.diff h3 { margin-bottom: .35rem; }
+.diff p { color: var(--muted-fg); font-size: .9375rem; }
+
+/* ---- requirements -------------------------------------------------- */
+
+.req ul { margin: .75rem 0 0; padding-left: 1.1rem; color: var(--muted-fg); }
+.req li { margin-bottom: .35rem; }
+.req pre {
+  background: var(--muted); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: .8rem 1rem; overflow-x: auto;
+  font-size: .9375rem; margin: .75rem 0;
+}
+.req code { font-family: ui-monospace, Menlo, Consolas, monospace; }
+
+/* ---- download ------------------------------------------------------ */
+
+.download .panel { display: grid; gap: 1rem; }
+.dl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+.dl-meta { color: var(--muted-fg); font-size: .875rem; }
+.dl-help { color: var(--muted-fg); font-size: .9375rem; }
+
+/* ---- footer -------------------------------------------------------- */
+
+.foot {
+  border-top: 1px solid var(--panel-border);
+  padding: 2.75rem 0 2.25rem;
+  color: var(--muted-fg); font-size: .875rem;
+}
+.foot-inner {
+  display: flex; flex-wrap: wrap; gap: 2rem 4rem;
+  align-items: flex-start; justify-content: space-between;
+}
+
+/* The brand side carries the weight: mark, name, a line saying what
+   this is, and who made it. Without it the row was an image at one
+   edge and a list at the other with nothing in between. */
+.foot-brand {
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: 1rem; max-width: 52ch;
+}
+.foot-lockup {
+  display: inline-flex; align-items: center; gap: .6rem;
+  font-size: 1.0625rem; font-weight: 700; letter-spacing: -.01em;
+  color: var(--fg); text-decoration: none; padding: .35rem 0;
+}
+.foot-lockup:hover { color: var(--accent); }
+.foot-tagline {
+  margin: 0; color: var(--muted-fg);
+  font-size: .875rem; line-height: 1.65;
+}
+
+.foot-nav { display: flex; flex-direction: column; margin-right: 3rem; }
+.foot-nav-title {
+  margin: 0 0 .6rem; padding-bottom: .5rem;
+  font-size: .75rem; font-weight: 700;
+  letter-spacing: .09em; text-transform: uppercase; color: var(--muted-fg);
+  border-bottom: 1px solid var(--panel-border);
+}
+/* Column-major: the list reads downwards and then across, the way a
+   menu is read, rather than left-to-right along each row. */
+.foot-nav-links {
+  display: grid; grid-auto-flow: column;
+  grid-template-rows: repeat(3, auto);
+  column-gap: 3rem;
+}
+.foot-nav a {
+  color: var(--fg); text-decoration: none; font-weight: 600;
+  opacity: .8;
+}
+.foot-nav a:hover { opacity: 1; color: var(--accent); }
+.foot-nav a[aria-current="page"] { opacity: 1; color: var(--accent); }
+/* .7rem each side of a 22px line clears the 44px a touch target wants. */
+.foot-nav a { display: inline-flex; align-items: center; padding: .7rem 0; }
+
+/* ---- questions ------------------------------------------------------ */
+
+.faq-item { border-top: 1px solid var(--panel-border); }
+.faq-item:first-child { border-top: none; }
+.faq-item h3 { margin: 0; font-size: 1rem; }
+.faq-item summary {
+  cursor: pointer; padding: .85rem 0; list-style: none;
+  display: flex; justify-content: space-between; gap: 1rem;
+}
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::after { content: "+"; color: var(--muted-fg); font-weight: 400; }
+.faq-item[open] summary::after { content: "\2013"; }
+.faq-item p {
+  color: var(--muted-fg); font-size: .9375rem;
+  margin: 0 0 .95rem; max-width: 68ch;
+}
+
+
+/* The update dot legend draws the actual colours rather than naming them. */
+.dot-legend { display: grid; gap: .6rem; margin: .5rem 0 0; padding: 0; list-style: none; }
+.dot-legend li { display: flex; align-items: baseline; gap: .65rem; font-size: .9375rem; }
+.dot-legend .dot {
+  width: .7rem; height: .7rem; border-radius: 50%; flex: none;
+  transform: translateY(1px);
+}
+
+.note {
+  display: flex; gap: .85rem; align-items: flex-start;
+  background: var(--accent-container); color: var(--on-accent-container);
+  border-radius: var(--radius); padding: .9rem 1.05rem; margin: 1rem 0 0;
+  font-size: .9375rem;
+}
+.note svg { flex: none; margin-top: .1rem; }
+.note a { color: inherit; }
+
+/* The bar carries one more item than it used to: the all-apps launcher,
+   which is the last thing on the right and has to stay reachable at
+   every width. On a narrow screen the brand was also wrapping onto two
+   lines, which pushed the bar to 83px tall and squeezed the links until
+   Download ran off the edge. Keeping the name on one line and trimming
+   the gaps buys back the room the launcher needs. */
+@media (max-width: 40rem) {
+  .brand { white-space: nowrap; font-size: .9375rem; gap: .4rem; }
+  .topnav-inner { gap: .6rem; }
+  .nav-links { gap: .85rem; }
+}
+
+/* ---- legal sub-footer ----------------------------------------------- */
+
+.legal {
+  border-top: 1px solid var(--panel-border);
+  background: var(--bg);
+  padding: 1.25rem 0 1.75rem;
+}
+.legal-inner {
+  display: flex; flex-wrap: wrap; gap: 1rem 2rem;
+  align-items: flex-start; justify-content: space-between;
+}
+.legal-text {
+  margin: 0; color: var(--muted-fg);
+  font-size: .8125rem; line-height: 1.6;
+}
+/* Each of the three lines breaks where its own <br> says, not where a
+   measure runs out: the company line was wrapping mid-sentence. It
+   still wraps on a screen too narrow to hold it, which is the one
+   place wrapping is the right answer. */
+.legal-links {
+  display: flex; flex-wrap: wrap; gap: 1.25rem;
+  margin-left: auto; justify-content: flex-end;
+}
+.legal-links a {
+  color: var(--muted-fg); text-decoration: none;
+  font-size: .8125rem; font-weight: 600; padding: .55rem 0;
+}
+.legal-links a:hover { color: var(--fg); text-decoration: underline; }
+
+/* On a narrow screen the links go under the address rather than being
+   squeezed against it, still reading left to right in the same order. */
+@media (max-width: 46rem) {
+  .legal-links { margin-left: 0; justify-content: flex-start; gap: 1rem; }
+}
+
+/* ---- legal pages ----------------------------------------------------- */
+
+.legal-page { padding: 2.5rem 0 1rem; }
+.legal-page h1 { font-size: clamp(1.7rem, 3.6vw, 2.4rem); margin: 0 0 .5rem; }
+.legal-page .updated { color: var(--muted-fg); font-size: .875rem; margin: 0 0 1.75rem; }
+.legal-body { max-width: 68ch; }
+.legal-body h2 { font-size: 1.25rem; margin: 2rem 0 .5rem; }
+.legal-body p, .legal-body li { color: var(--fg); line-height: 1.65; }
+.legal-body ul { padding-left: 1.15rem; }
+.legal-body li { margin: .35rem 0; }
+
+/* ---- open-source sub-footer ------------------------------------------ */
+
+.gh-foot {
+  border-top: 1px solid var(--panel-border);
+  padding: 1.25rem 0;
+}
+.gh-inner {
+  display: flex; flex-wrap: wrap; gap: 1rem 2rem;
+  align-items: center; justify-content: space-between;
+}
+.gh-marks { display: flex; align-items: center; gap: 1rem; }
+.gh-marks a {
+  display: inline-flex; align-items: center;
+  color: var(--muted-fg); padding: .4rem 0;
+}
+.gh-marks a:hover { color: var(--fg); }
+.gh-links {
+  display: flex; flex-wrap: wrap; gap: 1.5rem;
+  margin-left: auto; justify-content: flex-end;
+}
+.gh-links a {
+  color: var(--muted-fg); text-decoration: none;
+  font-size: .875rem; padding: .55rem 0;
+}
+.gh-links a:hover { color: var(--fg); text-decoration: underline; }
+
+/* The legal links sit level with the last line of the address, as in
+   the reference, rather than floating up beside the first. */
+.legal-inner { align-items: flex-end; }
+
+@media (max-width: 46rem) {
+  .gh-links { margin-left: 0; justify-content: flex-start; gap: 1rem; }
+  .foot-nav { margin-right: 0; }
+}
+
+
+/* ---- beta notice ----------------------------------------------------- */
+/* Amber, because it is a warning and not decoration. It sits directly
+   under the bar so nobody reaches the download without passing it. */
+
+.beta {
+  background: var(--accent-container);
+  color: var(--on-accent-container);
+  border-bottom: 1px solid var(--panel-border);
+}
+.beta-inner {
+  display: flex; align-items: flex-start; gap: .75rem;
+  padding: .85rem 0; font-size: .9375rem;
+}
+.beta svg { flex: none; margin-top: .15rem; }
+.beta b { font-weight: 700; }
+.beta p { margin: 0; }
+
+/* ---- the screens diagram --------------------------------------------- */
+/* A picture of the thing it does: your screen in the middle, the others
+   around it, one to an edge. */
+
+.layout {
+  display: grid; gap: .6rem; margin: 1.5rem 0 0;
+  grid-template-columns: 1fr 1.5fr 1fr;
+  grid-template-rows: auto auto auto;
+  align-items: stretch; max-width: 34rem;
+}
+.screen {
+  background: var(--panel); border: 1px solid var(--panel-border);
+  border-radius: var(--radius); padding: .85rem .75rem; text-align: center;
+  font-size: .8125rem; color: var(--muted-fg);
+}
+.screen b { display: block; color: var(--fg); font-size: .875rem; font-weight: 600; }
+.screen.here {
+  background: var(--check-bg); border-color: var(--accent);
+  color: var(--check-dim); padding: 1.6rem .75rem;
+}
+.screen.here b { color: var(--accent); }
+.screen.top { grid-column: 2; grid-row: 1; }
+.screen.left { grid-column: 1; grid-row: 2; }
+.screen.here { grid-column: 2; grid-row: 2; }
+.screen.right { grid-column: 3; grid-row: 2; }
+.screen.bottom { grid-column: 2; grid-row: 3; }
+
+/* ---- the update dot on the page -------------------------------------- */
+
+.dot-legend .dot.green { background: #4ade80; }
+.dot-legend .dot.yellow { background: #fbc711; }
+.dot-legend .dot.blue { background: #60a5fa; }
+.dot-legend .dot.red { background: #f87171; }
+.dot-legend .dot.ring {
+  background: none; border: 2px solid var(--muted-fg);
+  width: .8rem; height: .8rem;
+}

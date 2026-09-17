@@ -137,7 +137,7 @@ fi
 %{_datadir}/icons/hicolor/scalable/apps/lmflow.svg
 
 %changelog
-* Wed Sep 17 2025 Charlie <claude@charlie.cx> - 0.2.0-1
+* Wed Sep 17 2025 Lightmorphic <github@lightmorphic.com> - 0.2.0-1
 - Finds other computers on the network by itself
 - Drives up to four machines at once, one on each screen edge
 - Screen edges and corners are left to the desktop
