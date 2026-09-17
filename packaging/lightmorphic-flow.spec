@@ -1,5 +1,5 @@
 Name:           lightmorphic-flow
-Version:        0.2.2
+Version:        0.3.0
 Release:        1%{?dist}
 Summary:        Share one mouse, keyboard and clipboard between Linux computers
 
@@ -17,6 +17,8 @@ Requires:       python3 >= 3.9
 Requires:       python3-gobject
 Requires:       gtk4
 Requires:       libadwaita
+Requires:       gtk3
+Requires:       libayatana-appindicator-gtk3
 Requires:       openssl
 Requires:       systemd
 Recommends:     wl-clipboard
@@ -54,7 +56,7 @@ LAUNCH
 chmod 0755 %{buildroot}%{_bindir}/lmflow
 
 install -d %{buildroot}%{userunitdir}
-for role in server client; do
+for role in server client tray; do
 cat > %{buildroot}%{userunitdir}/lmflow-$role.service <<UNIT
 [Unit]
 Description=Lightmorphic Flow ($role)
@@ -99,13 +101,28 @@ install -d %{buildroot}%{_datadir}/metainfo
 install -m 0644 packaging/uk.lightmorph.Flow.metainfo.xml %{buildroot}%{_datadir}/metainfo/
 
 install -d %{buildroot}%{_datadir}/icons/hicolor/scalable/apps
-install -m 0644 packaging/uk.lightmorph.Flow.svg \
-    %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/uk.lightmorph.Flow.svg
-for s in 48 64 128 256 512; do
-    install -d %{buildroot}%{_datadir}/icons/hicolor/${s}x${s}/apps
-    install -m 0644 packaging/icons/$s/uk.lightmorph.Flow.png \
-        %{buildroot}%{_datadir}/icons/hicolor/${s}x${s}/apps/uk.lightmorph.Flow.png
+for icon in uk.lightmorph.Flow uk.lightmorph.Flow-away; do
+    install -m 0644 packaging/$icon.svg \
+        %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/$icon.svg
+    for s in 48 64 128 256 512; do
+        install -d %{buildroot}%{_datadir}/icons/hicolor/${s}x${s}/apps
+        install -m 0644 packaging/icons/$s/$icon.png \
+            %{buildroot}%{_datadir}/icons/hicolor/${s}x${s}/apps/$icon.png
+    done
 done
+
+install -d %{buildroot}%{_sysconfdir}/xdg/autostart
+cat > %{buildroot}%{_sysconfdir}/xdg/autostart/uk.lightmorph.Flow.tray.desktop <<'AUTO'
+[Desktop Entry]
+Type=Application
+Name=Lightmorphic Flow tray icon
+Comment=Shows where the pointer is and where to send it
+Exec=lmflow tray
+Icon=uk.lightmorph.Flow
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+AUTO
 
 %post
 getent group input >/dev/null || groupadd -r input || :
@@ -140,14 +157,19 @@ fi
 %{flowlibdir}/
 %{userunitdir}/lmflow-server.service
 %{userunitdir}/lmflow-client.service
+%{userunitdir}/lmflow-tray.service
+%config(noreplace) %{_sysconfdir}/xdg/autostart/uk.lightmorph.Flow.tray.desktop
 %{udevruledir}/60-lmflow.rules
 %{_prefix}/lib/modules-load.d/lmflow.conf
 %{_datadir}/applications/uk.lightmorph.Flow.desktop
 %{_datadir}/metainfo/uk.lightmorph.Flow.metainfo.xml
-%{_datadir}/icons/hicolor/scalable/apps/uk.lightmorph.Flow.svg
-%{_datadir}/icons/hicolor/*/apps/uk.lightmorph.Flow.png
+%{_datadir}/icons/hicolor/scalable/apps/uk.lightmorph.Flow*.svg
+%{_datadir}/icons/hicolor/*/apps/uk.lightmorph.Flow*.png
 
 %changelog
+* Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.3.0-1
+- A tray icon showing where the pointer is, and sending it elsewhere
+
 * Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.2.2-1
 - The update dot follows the house standard exactly
 

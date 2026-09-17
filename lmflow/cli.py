@@ -236,6 +236,11 @@ def cmd_gui(_args):
     return main()
 
 
+def cmd_tray(_args):
+    from .tray import main
+    return main()
+
+
 def _install_stop(obj):
     def handler(_sig, _frame):
         obj.stop()
@@ -263,6 +268,7 @@ def main(argv=None):
     subs.add_parser("devices", help="list the mice and keyboards found").set_defaults(func=cmd_devices)
     subs.add_parser("screen", help="show the detected screen size").set_defaults(func=cmd_screen)
     subs.add_parser("gui", help="open the settings window").set_defaults(func=cmd_gui)
+    subs.add_parser("tray", help="show the tray icon").set_defaults(func=cmd_tray)
     subs.add_parser("install-services",
                     help="add the background service and menu entry").set_defaults(func=cmd_install_services)
 

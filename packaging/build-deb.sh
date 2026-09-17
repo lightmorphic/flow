@@ -24,11 +24,12 @@ LAUNCH
 chmod 0755 "$stage/usr/bin/lmflow"
 
 install -d "$stage/usr/lib/systemd/user"
-for role in server client; do
+for role in server client tray; do
   cat > "$stage/usr/lib/systemd/user/lmflow-$role.service" <<UNIT
 [Unit]
 Description=Lightmorphic Flow ($role)
 After=graphical-session.target
+PartOf=graphical-session.target
 
 [Service]
 Type=simple
@@ -73,13 +74,30 @@ install -d "$stage/usr/share/metainfo"
 install -m 0644 "$here/uk.lightmorph.Flow.metainfo.xml" "$stage/usr/share/metainfo/"
 
 install -d "$stage/usr/share/icons/hicolor/scalable/apps"
-install -m 0644 "$here/uk.lightmorph.Flow.svg" \
-  "$stage/usr/share/icons/hicolor/scalable/apps/uk.lightmorph.Flow.svg"
-for s in 48 64 128 256 512; do
-  install -d "$stage/usr/share/icons/hicolor/${s}x${s}/apps"
-  install -m 0644 "$here/icons/$s/uk.lightmorph.Flow.png" \
-    "$stage/usr/share/icons/hicolor/${s}x${s}/apps/uk.lightmorph.Flow.png"
+for icon in uk.lightmorph.Flow uk.lightmorph.Flow-away; do
+  install -m 0644 "$here/$icon.svg" \
+    "$stage/usr/share/icons/hicolor/scalable/apps/$icon.svg"
+  for s in 48 64 128 256 512; do
+    install -d "$stage/usr/share/icons/hicolor/${s}x${s}/apps"
+    install -m 0644 "$here/icons/$s/$icon.png" \
+      "$stage/usr/share/icons/hicolor/${s}x${s}/apps/$icon.png"
+  done
 done
+
+# The tray icon starts itself at login; the sharing service is yours to turn on.
+install -d "$stage/etc/xdg/autostart"
+cat > "$stage/etc/xdg/autostart/uk.lightmorph.Flow.tray.desktop" <<'AUTO'
+[Desktop Entry]
+Type=Application
+Name=Lightmorphic Flow tray icon
+Comment=Shows where the pointer is and where to send it
+Exec=lmflow tray
+Icon=uk.lightmorph.Flow
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+AUTO
+chmod 0644 "$stage/etc/xdg/autostart/uk.lightmorph.Flow.tray.desktop"
 
 install -d "$stage/usr/share/doc/lmflow"
 install -m 0644 "$root/README.md" "$stage/usr/share/doc/lmflow/README.md"
@@ -94,7 +112,9 @@ Version: $version
 Section: utils
 Priority: optional
 Architecture: all
-Depends: python3 (>= 3.9), python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, openssl, systemd
+Depends: python3 (>= 3.9), python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1,
+         gir1.2-gtk-3.0, gir1.2-ayatanaappindicator3-0.1 | gir1.2-appindicator3-0.1,
+         openssl, systemd
 Recommends: wl-clipboard | xclip
 Installed-Size: $size
 Homepage: https://flow.lightmorphic.com

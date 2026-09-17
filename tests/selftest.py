@@ -16,7 +16,10 @@ config.KEY_PATH = os.path.join(config.CONFIG_DIR, "key.pem")
 config.PAIR_PATH = os.path.join(config.CONFIG_DIR, "pairing-open-until")
 
 from lmflow import (client as client_mod, discovery, net, protocol,  # noqa: E402
-                         screen, server as server_mod)
+                    screen, server as server_mod, status)
+
+status.STATUS_PATH = os.path.join(config.CONFIG_DIR, "status.json")
+status.COMMAND_PATH = os.path.join(config.CONFIG_DIR, "command")
 
 FAILS = []
 
@@ -274,6 +277,38 @@ check("two machines are driven at once, on different edges",
 srv.stop()
 known.stop()
 joiner.stop()
+
+print("-- what the tray is shown --")
+t = make_server()
+one = add_peer(t, "desktop", "right")
+two = add_peer(t, "shelf", "top")
+t.running = True
+t.publish()
+shown = status.read()
+check("the tray is told about every computer",
+      {p["name"] for p in shown["peers"]} == {"desktop", "shelf"}, str(shown["peers"]))
+check("and that the pointer is at home", shown["active"] is None)
+
+t.x, t.y = 999, 400
+t.go_to(one)
+shown = status.read()
+check("and where the pointer has gone",
+      (shown["active"] or {}).get("name") == "desktop", str(shown["active"]))
+
+status.send("home")
+t._take_command()
+check("the tray can call the pointer home", t.active is None)
+
+status.send(f"goto:{two.id}")
+t._take_command()
+check("and send it to a named computer", t.active is two)
+
+status.send("next")
+t._take_command()
+check("and step to the next one", t.active is not two)
+
+t.stop()
+check("nothing is left behind when it stops", status.read()["peers"] == [])
 
 print()
 print("all good" if not FAILS else f"{len(FAILS)} failed: {FAILS}")

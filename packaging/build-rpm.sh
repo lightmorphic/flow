@@ -20,7 +20,7 @@ stage="$top/$name-$version"
 mkdir -p "$stage"
 cp -r "$root/lmflow" "$root/tests" "$root/README.md" "$root/LICENSE" "$stage/"
 mkdir -p "$stage/packaging"
-cp "$here/uk.lightmorph.Flow.svg" "$here/uk.lightmorph.Flow.metainfo.xml" "$stage/packaging/"
+cp "$here"/uk.lightmorph.Flow*.svg "$here/uk.lightmorph.Flow.metainfo.xml" "$stage/packaging/"
 cp -r "$here/icons" "$stage/packaging/"
 find "$stage" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
 tar -czf "$top/SOURCES/$name-$version.tar.gz" -C "$top" "$name-$version"

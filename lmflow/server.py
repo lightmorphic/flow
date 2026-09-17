@@ -12,7 +12,7 @@ import ssl
 import threading
 import time
 
-from . import config, discovery, net, protocol, screen
+from . import config, discovery, net, protocol, screen, status
 from .clipboard import Clipboard
 from .hotkeys import HotkeyWatcher
 from .linux_input import (EV_KEY, EV_REL, InputError, InputReader, REL_X, REL_Y,
@@ -137,6 +137,19 @@ class Server:
             pad.reset()
 
     # ------------------------------------------------------------ switching
+    def publish(self):
+        with self._peers_lock:
+            peers = [{"id": p.id, "name": p.name, "edge": p.edge} for p in
+                     sorted(self.peers.values(), key=lambda p: EDGES.index(p.edge))]
+        active = self.active
+        status.write({
+            "role": "server",
+            "running": self.running,
+            "active": {"id": active.id, "name": active.name, "edge": active.edge}
+            if active is not None else None,
+            "peers": peers,
+        })
+
     def peer_on(self, edge):
         with self._peers_lock:
             for peer in self.peers.values():
@@ -187,6 +200,7 @@ class Server:
             self._grab_all(True)
         peer.send(protocol.pack_json(protocol.ENTER, {"x": nx, "y": ny}))
         self.log(f"pointer moved to {peer.name}")
+        self.publish()
 
     def go_local(self):
         if self.active is None:
@@ -206,6 +220,7 @@ class Server:
         self._grab_all(False)
         peer.send(protocol.pack(protocol.LEAVE, b""))
         self.log("pointer back on this machine")
+        self.publish()
 
     def _frac_x(self):
         w = self.width if self.active is None else self.active.size[0]
@@ -298,8 +313,9 @@ class Server:
             self.clipboard.start()
         if self.cfg["discovery"]:
             self.announcer.start()
+        self.publish()
         self.log(f"ready - screen {self.width}x{self.height}")
-        last_scan = last_cfg = time.monotonic()
+        last_scan = last_cfg = last_command = time.monotonic()
         try:
             while self.running:
                 for key, _ in self._selector.select(timeout=0.2):
@@ -311,8 +327,24 @@ class Server:
                 if now - last_cfg > 1.0:
                     last_cfg = now
                     self._reload_config()
+                if now - last_command > 0.2:
+                    last_command = now
+                    self._take_command()
         finally:
             self.stop()
+
+    def _take_command(self):
+        command = status.take()
+        if command is None:
+            return
+        if command == "home":
+            self.go_local()
+        elif command.startswith("goto:"):
+            with self._peers_lock:
+                peer = self.peers.get(command[5:])
+            self.go_to(peer)
+        elif command == "next":
+            self.cycle()
 
     def _reload_config(self):
         mtime = config.mtime()
@@ -329,6 +361,7 @@ class Server:
 
     def stop(self):
         self.running = False
+        status.clear()
         self.clipboard.stop()
         self.announcer.stop()
         self._grab_all(False)
@@ -365,6 +398,7 @@ class Server:
         except OSError:
             pass
         self.log(f"{peer.name} disconnected")
+        self.publish()
 
     def _accept_loop(self):
         ctx = net.server_context()
@@ -426,6 +460,7 @@ class Server:
             "id": discovery.machine_id(),
         }))
         self.log(f"connected: {name} at {addr[0]} on the {peer.edge}")
+        self.publish()
         self._read_loop(peer)
 
     def _read_hello(self, conn):
