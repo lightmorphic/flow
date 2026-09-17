@@ -33,6 +33,7 @@ PartOf=graphical-session.target
 
 [Service]
 Type=simple
+Environment=PYTHONUNBUFFERED=1
 ExecStart=/usr/bin/lmflow $role
 Restart=on-failure
 RestartSec=3

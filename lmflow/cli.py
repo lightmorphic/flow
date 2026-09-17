@@ -193,11 +193,15 @@ def cmd_forget(args):
     return 0
 
 
+def _say(*parts):
+    print(*parts, flush=True)
+
+
 def cmd_server(args):
     from .linux_input import InputError
     from .server import Server
     try:
-        server = Server(config.load())
+        server = Server(config.load(), log=_say)
         _install_stop(server)
         if args.test_seconds:
             _auto_stop(server, args.test_seconds)
@@ -212,7 +216,7 @@ def cmd_client(args):
     from .client import Client
     from .linux_input import InputError
     try:
-        client = Client(config.load())
+        client = Client(config.load(), log=_say)
         _install_stop(client)
         if args.test_seconds:
             _auto_stop(client, args.test_seconds)
@@ -307,8 +311,65 @@ def cmd_doctor(_args):
             print(f"{path:16} {what} ok")
         except OSError as exc:
             print(f"{path:16} {what} FAILED - {exc.strerror}")
+    from . import permissions
+    state = permissions.state()
+    if state == permissions.READY:
+        print("input access     ok")
+    else:
+        print(f"input access     NOT WORKING - {permissions.HEADLINE[state].lower()}")
     groups = subprocess.run(["id", "-nG"], capture_output=True, text=True).stdout.split()
-    print(f"input group      {'yes' if 'input' in groups else 'NO - log out and back in'}")
+    print(f"input group      {'yes' if 'input' in groups else 'no (not needed if access is ok)'}")
+    return 0
+
+
+REPORT_DIRS = ("~/8-Claude-Sync", "~/Desktop", "~")
+
+
+def cmd_report(_args):
+    """Everything about this machine, written to a file that can be sent on."""
+    import datetime
+    import io
+    from . import discovery
+
+    target = None
+    for folder in REPORT_DIRS:
+        folder = os.path.expanduser(folder)
+        if os.path.isdir(folder):
+            target = os.path.join(
+                folder, f"lmflow-report-{discovery.machine_name()}.txt")
+            break
+    if target is None:
+        target = os.path.expanduser("~/lmflow-report.txt")
+
+    buffer = io.StringIO()
+    saved, sys.stdout = sys.stdout, buffer
+    try:
+        cmd_doctor(None)
+    finally:
+        sys.stdout = saved
+    lines = [f"Lightmorphic Flow report, {datetime.datetime.now():%Y-%m-%d %H:%M}",
+             "", buffer.getvalue()]
+
+    for title, argv in (
+        ("services", ["systemctl", "--user", "--no-pager", "--all",
+                      "list-units", "lmflow*"]),
+        ("recent log", ["journalctl", "--user", "-u", "lmflow-server.service",
+                        "-u", "lmflow-client.service", "-u", "lmflow-tray.service",
+                        "-n", "200", "--no-pager"]),
+        ("settings", ["cat", os.path.expanduser("~/.config/lmflow/config.json")]),
+        ("what it is doing", ["cat", os.path.expanduser("~/.config/lmflow/status.json")]),
+        ("input devices", ["cat", "/proc/bus/input/devices"]),
+    ):
+        lines.append(f"\n===== {title} =====")
+        try:
+            result = subprocess.run(argv, capture_output=True, text=True, timeout=30)
+            lines.append(result.stdout or result.stderr or "(nothing)")
+        except (OSError, subprocess.SubprocessError) as exc:
+            lines.append(f"(could not read: {exc})")
+
+    with open(target, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(lines))
+    print(f"Written to {target}")
     return 0
 
 
@@ -355,6 +416,7 @@ def main(argv=None):
     subs.add_parser("devices", help="list the mice and keyboards found").set_defaults(func=cmd_devices)
     subs.add_parser("screen", help="show the detected screen size").set_defaults(func=cmd_screen)
     subs.add_parser("doctor", help="report everything about this machine").set_defaults(func=cmd_doctor)
+    subs.add_parser("report", help="write a full report to a file you can send on").set_defaults(func=cmd_report)
     subs.add_parser("gui", help="open the settings window").set_defaults(func=cmd_gui)
     subs.add_parser("tray", help="show the tray icon").set_defaults(func=cmd_tray)
     subs.add_parser("install-services",
