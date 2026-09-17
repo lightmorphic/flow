@@ -1,6 +1,8 @@
 """The tray icon: where the pointer is, and how to send it somewhere else."""
 from __future__ import annotations
 
+import fcntl
+import os
 import subprocess
 import sys
 
@@ -29,6 +31,22 @@ def _indicator_module():
         except (ValueError, ImportError, KeyError):
             continue
     return None
+
+
+def _only_one():
+    """Hold a lock for as long as we run, so two ways of starting the tray
+    cannot leave two icons in the bar. Returns the open file, or None."""
+    path = os.path.join(config.CONFIG_DIR, "tray.lock")
+    os.makedirs(config.CONFIG_DIR, mode=0o700, exist_ok=True)
+    handle = open(path, "w", encoding="ascii")
+    try:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        handle.close()
+        return None
+    handle.write(str(os.getpid()))
+    handle.flush()
+    return handle
 
 
 def _systemctl(*args):
@@ -114,16 +132,27 @@ class Tray:
             home.set_sensitive(bool(active))
             self.menu.append(home)
             self.menu.append(Gtk.SeparatorMenuItem())
+
+            for peer in peers:
+                drop = Gtk.MenuItem(label=f"Disconnect {peer['name']}")
+                drop.connect("activate", self._drop, peer["id"])
+                self.menu.append(drop)
+            self.menu.append(Gtk.SeparatorMenuItem())
         elif running:
             none = Gtk.MenuItem(label="No other computer connected")
             none.set_sensitive(False)
             self.menu.append(none)
             self.menu.append(Gtk.SeparatorMenuItem())
 
-        toggle = Gtk.CheckMenuItem(label="Sharing")
-        toggle.set_active(running)
-        toggle.connect("toggled", self._toggle)
-        self.menu.append(toggle)
+        connect = Gtk.MenuItem(label="Connect")
+        connect.connect("activate", lambda _w: self._set_running(True))
+        connect.set_sensitive(not running and trouble is None)
+        self.menu.append(connect)
+
+        disconnect = Gtk.MenuItem(label="Disconnect")
+        disconnect.connect("activate", lambda _w: self._set_running(False))
+        disconnect.set_sensitive(running)
+        self.menu.append(disconnect)
 
         settings = Gtk.MenuItem(label="Settings…")
         settings.connect("activate", self._open_settings)
@@ -148,13 +177,13 @@ class Tray:
         result = _systemctl("is-active", self._unit())
         return bool(result) and result.stdout.strip() == "active"
 
-    def _toggle(self, widget):
-        if widget.get_active() == self._service_active():
+    def _drop(self, _widget, peer_id):
+        status.send(f"drop:{peer_id}")
+
+    def _set_running(self, wanted):
+        if wanted == self._service_active():
             return
-        if widget.get_active():
-            _systemctl("start", self._unit())
-        else:
-            _systemctl("stop", self._unit())
+        _systemctl("start" if wanted else "stop", self._unit())
         self._signature = None
 
     def _open_settings(self, _widget):
@@ -168,11 +197,22 @@ class Tray:
 
 
 def main():
+    lock = _only_one()
+    if lock is None:
+        print("The tray icon is already running.", file=sys.stderr)
+        return 0
     try:
-        Tray()
+        # Held in a name on purpose: dropped on the floor, Python collects it
+        # and the icon disappears the instant it is made.
+        tray = Tray()
     except RuntimeError as exc:
         print(exc, file=sys.stderr)
         return 1
-    print(f"Lightmorphic Flow {__version__}: tray icon running")
-    Gtk.main()
+    print(f"Lightmorphic Flow {__version__}: tray icon running", flush=True)
+    try:
+        Gtk.main()
+    except KeyboardInterrupt:
+        pass
+    del tray
+    lock.close()
     return 0

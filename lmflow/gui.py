@@ -1,6 +1,7 @@
 """Settings window. Every field saves itself; there is no save button."""
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 
@@ -77,6 +78,25 @@ class Window(Adw.ApplicationWindow):
         self._refresh_power()
         GLib.timeout_add_seconds(2, self._tick)
         GLib.idle_add(self._check_permission)
+        GLib.idle_add(self._start_tray)
+
+    def _start_tray(self):
+        """The tray starts itself at login; if this is the first run since
+        installing, nothing has started it yet."""
+        result = _systemctl("is-active", "lmflow-tray.service")
+        if result is not None and result.stdout.strip() == "active":
+            return False
+        started = _systemctl("start", "lmflow-tray.service")
+        if started is not None and started.returncode == 0:
+            return False
+        try:                                  # no systemd session: run it directly
+            binary = "/usr/bin/lmflow"
+            command = [binary, "tray"] if os.path.exists(binary) else \
+                [sys.executable, "-m", "lmflow", "tray"]
+            subprocess.Popen(command, start_new_session=True)
+        except OSError as exc:
+            print(f"could not start the tray icon: {exc}", file=sys.stderr)
+        return False
 
     # ------------------------------------------------------------ permission
     def _check_permission(self):

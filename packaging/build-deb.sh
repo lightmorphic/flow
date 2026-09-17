@@ -169,6 +169,7 @@ if [ "$1" = "configure" ]; then
         udevadm trigger --subsystem-match=input --subsystem-match=misc >/dev/null 2>&1 || true
     fi
     systemctl daemon-reload >/dev/null 2>&1 || true
+    systemctl --global enable lmflow-tray.service >/dev/null 2>&1 || true
     echo ""
     echo "  Lightmorphic Flow is ready. Open it from your applications."
     echo "  If it tells you it cannot read your mouse, log out and back in once."

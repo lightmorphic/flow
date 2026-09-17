@@ -347,6 +347,11 @@ class Server:
             self.go_to(peer)
         elif command == "next":
             self.cycle()
+        elif command.startswith("drop:"):
+            with self._peers_lock:
+                peer = self.peers.get(command[5:])
+            if peer is not None:
+                self._drop(peer)
 
     def _reload_config(self):
         mtime = config.mtime()

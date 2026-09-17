@@ -1,5 +1,5 @@
 Name:           lightmorphic-flow
-Version:        0.5.0
+Version:        0.5.1
 Release:        1%{?dist}
 Summary:        Share one mouse, keyboard and clipboard between Linux computers
 
@@ -154,6 +154,7 @@ if [ -d /run/udev ]; then
     udevadm trigger --subsystem-match=input --subsystem-match=misc >/dev/null 2>&1 || :
 fi
 systemctl daemon-reload >/dev/null 2>&1 || :
+    systemctl --global enable lmflow-tray.service >/dev/null 2>&1 || :
 echo ""
 echo "  Lightmorphic Flow is ready. Open it from your applications."
 echo "  If it tells you it cannot read your mouse, log out and back in once."
@@ -181,6 +182,9 @@ fi
 %{_datadir}/icons/hicolor/*/apps/uk.lightmorph.Flow*.png
 
 %changelog
+* Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.5.1-1
+- The tray icon actually appears, with connect and disconnect
+
 * Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.5.0-1
 - Works the moment it is installed; no logging out
 

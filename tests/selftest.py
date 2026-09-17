@@ -311,6 +311,11 @@ status.send("next")
 t._take_command()
 check("and step to the next one", t.active is not two)
 
+status.send(f"drop:{one.id}")
+t._take_command()
+check("the tray can disconnect one computer", one.id not in t.peers,
+      str(sorted(t.peers)))
+
 t.stop()
 check("nothing is left behind when it stops", status.read()["peers"] == [])
 
