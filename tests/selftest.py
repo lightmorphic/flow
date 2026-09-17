@@ -21,6 +21,10 @@ from lmflow import (client as client_mod, discovery, net, protocol,  # noqa: E40
 status.STATUS_PATH = os.path.join(config.CONFIG_DIR, "status.json")
 status.COMMAND_PATH = os.path.join(config.CONFIG_DIR, "command")
 
+# Its own port, so a real copy of the app running on this machine does not
+# swallow half the test's announcements.
+discovery.PORT = 24897
+
 FAILS = []
 
 

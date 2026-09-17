@@ -1,16 +1,29 @@
-"""The update dot itself - the only update control in the app."""
+"""The update dot: the only update control in the app.
+
+Sizes, position and pulse follow the house standard exactly - 12px version
+number, a 16px dot, top right opposite the logo, one pulse a second.
+"""
 from __future__ import annotations
 
 import math
 import os
 import sys
+import time
 
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import GLib, Gtk                   # noqa: E402
+gi.require_version("Gdk", "4.0")
+from gi.repository import Gdk, GLib, Gtk               # noqa: E402
 
-from . import __version__, updater as up              # noqa: E402
+from . import __version__, updater as up               # noqa: E402
+
+TEXT_PX = 12          # exact, not relative
+DOT_PX = 16           # exact, never sized from the text
+PAD = 4               # room for the antialiased edge, outside the diameter
+PULSE_SECONDS = 1.0   # one pulse a second, like a heartbeat
+PULSE_MINIMUM = 3.0   # a manual check pulses at least three times
+FRAME_MS = 33
 
 # The house palette: green #4BAE4F, amber #FFC006, blue #2295F1, red #F34236.
 COLOURS = {
@@ -20,60 +33,52 @@ COLOURS = {
     up.OFFLINE: (0.953, 0.259, 0.212),
 }
 RING_TRACK = (0.631, 0.631, 0.667, 0.55)
-TEXT_SIZE = 12
-PAD = 4          # breathing room around the dot, not part of its diameter
-# The house standard says twice the text height, but in the header bar opposite
-# the logo - where Charlie wants it - that reads far too big, so two thirds.
-DOT_SCALE = 2 / 3
+
+CSS = b".flow-version { font-size: 12px; }"
 
 
 class UpdateDot(Gtk.Box):
-    """The version number, then the one dot. Nothing else."""
+    """The version number, then the dot. Never the application name."""
 
     def __init__(self, log=print):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         self.set_valign(Gtk.Align.CENTER)
-        self._diameter = round(TEXT_SIZE * 2 * DOT_SCALE)
-        self.set_valign(Gtk.Align.CENTER)
         self.log = log
+        self.state = up.UP_TO_DATE
+        self.progress = 0.0
+
+        display = Gdk.Display.get_default()
+        if display is not None:
+            provider = Gtk.CssProvider()
+            provider.load_from_data(CSS)
+            Gtk.StyleContext.add_provider_for_display(
+                display, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
         self.label = Gtk.Label(valign=Gtk.Align.CENTER, use_markup=True)
+        self.label.add_css_class("flow-version")
+        # The app has a website, so the version number links to it.
         self.label.set_markup(
-            f'<a href="{up.WEBSITE}"><span size="{TEXT_SIZE * 1000}" '
-            f'underline="none">{__version__}</span></a>')
-        # The name in the header bar links to the same place; see gui.py.
-        self.label.add_css_class("dim")
-        self.label.set_tooltip_text(up.WEBSITE)
+            f'<a href="{up.WEBSITE}" title="{up.WEBSITE}">{__version__}</a>')
         self.append(self.label)
 
-        self.area = Gtk.DrawingArea(valign=Gtk.Align.CENTER)
+        box = DOT_PX + PAD
+        self.area = Gtk.DrawingArea(content_width=box, content_height=box,
+                                    valign=Gtk.Align.CENTER)
         self.area.set_draw_func(self._draw)
         self.append(self.area)
-        # The spec asks for a dot twice the height of the text next to it, so
-        # measure the label rather than guessing from the font size.
-        self.label.connect("realize", self._size_the_dot)
-        self._size_the_dot(self.label)
 
         click = Gtk.GestureClick()
         click.connect("released", self._clicked)
         self.area.add_controller(click)
 
-        self._pulse = 0.0
-        self._pulsing = False
+        self._pulse_from = None
+        self._pulse_hold = False
         self._note_timer = None
 
         self.updater = up.Updater(self._on_state, log=log)
         self._apply(up.UP_TO_DATE, 0.0, None)
         GLib.timeout_add_seconds(2, self._first_check)
         GLib.timeout_add_seconds(up.CHECK_SECONDS, self._periodic)
-
-    def _size_the_dot(self, label):
-        _minimum, natural, _mb, _nb = label.measure(Gtk.Orientation.VERTICAL, -1)
-        text_height = natural or TEXT_SIZE * 4 // 3
-        self._diameter = round(text_height * 2 * DOT_SCALE)
-        box = self._diameter + PAD          # room for the antialiased edge
-        self.area.set_content_width(box)
-        self.area.set_content_height(box)
 
     # ---------------------------------------------------------------- timing
     def _first_check(self):
@@ -91,8 +96,10 @@ class UpdateDot(Gtk.Box):
     def _apply(self, state, progress, note):
         self.state = state
         self.progress = progress
-        if state != up.DOWNLOADING:
-            self._stop_pulse()
+        if state == up.DOWNLOADING:
+            self._stop_pulse()               # the tracing line shows progress
+        else:
+            self._pulse_hold = False         # let a minimum pulse finish
         if note:
             self._say(note, settle=True)
         else:
@@ -115,8 +122,8 @@ class UpdateDot(Gtk.Box):
 
     # ----------------------------------------------------------- the clicking
     def _clicked(self, _gesture, _n, _x, _y):
-        if self.state == up.UP_TO_DATE or self.state == up.OFFLINE:
-            self._start_pulse()
+        if self.state in (up.UP_TO_DATE, up.OFFLINE):
+            self._start_pulse(hold=True)
             self.updater.check(manual=True)
         elif self.state == up.AVAILABLE:
             self.updater.download()
@@ -124,10 +131,15 @@ class UpdateDot(Gtk.Box):
             self._install()
 
     def _install(self):
-        self._say("Installing")
+        self._say("installing")
+        self._start_pulse(hold=True)         # until the app restarts
+        GLib.idle_add(self._do_install)
+
+    def _do_install(self):
         if not self.updater.install_and_restart():
-            self._apply(up.OFFLINE, 0.0, "Could not install the update")
-            return
+            self._pulse_hold = False
+            self._apply(up.OFFLINE, 0.0, "could not install the update")
+            return False
         binary = "/usr/bin/lmflow"
         try:
             if os.path.exists(binary):
@@ -135,34 +147,46 @@ class UpdateDot(Gtk.Box):
             os.execv(sys.executable, [sys.executable, "-m", "lmflow", "gui"])
         except OSError as exc:
             self.log(f"restart failed: {exc}")
+            self._pulse_hold = False
+        return False
 
     # ------------------------------------------------------------- the pulse
-    def _start_pulse(self):
-        if self._pulsing:
+    def _start_pulse(self, hold=False):
+        self._pulse_hold = hold
+        if self._pulse_from is not None:
             return
-        self._pulsing = True
-        self._pulse = 0.0
-        GLib.timeout_add(33, self._tick_pulse)
+        self._pulse_from = time.monotonic()
+        GLib.timeout_add(FRAME_MS, self._tick_pulse)
 
     def _stop_pulse(self):
-        self._pulsing = False
+        self._pulse_hold = False
+        self._pulse_from = None
+        self.area.queue_draw()
 
     def _tick_pulse(self):
-        if not self._pulsing:
-            self._pulse = 0.0
+        if self._pulse_from is None:
+            return False
+        elapsed = time.monotonic() - self._pulse_from
+        if not self._pulse_hold and elapsed >= PULSE_MINIMUM:
+            self._pulse_from = None
             self.area.queue_draw()
             return False
-        self._pulse += 0.09
         self.area.queue_draw()
         return True
+
+    def _alpha(self):
+        if self._pulse_from is None:
+            return 1.0
+        turn = (time.monotonic() - self._pulse_from) / PULSE_SECONDS
+        return 0.45 + 0.55 * (0.5 + 0.5 * math.cos(2 * math.pi * turn))
 
     # ------------------------------------------------------------- the paint
     def _draw(self, _area, cr, width, height):
         cx, cy = width / 2, height / 2
-        radius = self._diameter / 2
+        radius = DOT_PX / 2
 
         if self.state == up.DOWNLOADING:
-            line = max(2.0, radius * 0.18)
+            line = max(2.0, radius * 0.22)
             edge = radius - line / 2
             cr.set_line_width(line)
             cr.set_source_rgba(*RING_TRACK)
@@ -177,9 +201,6 @@ class UpdateDot(Gtk.Box):
             return
 
         red, green, blue = COLOURS.get(self.state, COLOURS[up.UP_TO_DATE])
-        alpha = 1.0
-        if self._pulsing:
-            alpha = 0.45 + 0.55 * (0.5 + 0.5 * math.cos(self._pulse))
-        cr.set_source_rgba(red, green, blue, alpha)
+        cr.set_source_rgba(red, green, blue, self._alpha())
         cr.arc(cx, cy, radius, 0, 2 * math.pi)
         cr.fill()
