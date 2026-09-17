@@ -1,5 +1,5 @@
 Name:           lightmorphic-flow
-Version:        0.5.3
+Version:        0.6.0
 Release:        1%{?dist}
 Summary:        Share one mouse, keyboard and clipboard between Linux computers
 
@@ -203,6 +203,9 @@ fi
 %{_datadir}/icons/hicolor/*/apps/uk.lightmorph.Flow*.png
 
 %changelog
+* Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.6.0-1
+- The controlled computer asks, so a firewall there needs no change
+
 * Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.5.3-1
 - Says when a firewall is blocking the two computers, and offers to open it
 

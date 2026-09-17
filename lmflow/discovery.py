@@ -1,4 +1,10 @@
-"""Finding other machines on the same network, with a UDP announcement."""
+"""Finding the other computers.
+
+The computer being controlled does the asking, and the one with the keyboard
+answers it directly. That matters: a reply to a question you asked is let back
+through a firewall as a matter of course, where something shouted at you
+unasked is dropped. Deskflow never hit this because you type its address in.
+"""
 from __future__ import annotations
 
 import hashlib
@@ -36,53 +42,18 @@ def _broadcast_addresses():
         sock.connect(("198.51.100.1", 9))
         own = sock.getsockname()[0]
         sock.close()
-        parts = own.split(".")
-        addrs.add(".".join(parts[:3] + ["255"]))
+        addrs.add(".".join(own.split(".")[:3] + ["255"]))
     except OSError:
         pass
     return sorted(addrs)
 
 
-class Announcer:
-    """Says 'here I am' on the network every couple of seconds."""
+class Responder:
+    """On the computer with the keyboard: answer anyone who asks."""
 
     def __init__(self, payload_fn, log=print):
         self._payload_fn = payload_fn
         self._log = log
-        self._stop = threading.Event()
-        self._thread = None
-
-    def start(self):
-        self._thread = threading.Thread(target=self._loop, daemon=True)
-        self._thread.start()
-
-    def stop(self):
-        self._stop.set()
-
-    def _loop(self):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        while not self._stop.is_set():
-            try:
-                blob = json.dumps(self._payload_fn()).encode("utf-8")
-                for addr in _broadcast_addresses():
-                    try:
-                        sock.sendto(blob, (addr, PORT))
-                    except OSError:
-                        pass
-            except Exception as exc:                          # pragma: no cover
-                self._log(f"discovery: {exc}")
-            self._stop.wait(INTERVAL)
-        sock.close()
-
-
-class Listener:
-    """Collects announcements. found() returns what has been heard recently."""
-
-    def __init__(self, ignore_id=None):
-        self.ignore_id = ignore_id or machine_id()
-        self._seen = {}
-        self._lock = threading.Lock()
         self._stop = threading.Event()
         self._sock = None
 
@@ -93,7 +64,12 @@ class Listener:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         except (AttributeError, OSError):
             pass
-        sock.bind(("0.0.0.0", PORT))
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        try:
+            sock.bind(("0.0.0.0", PORT))
+        except OSError as exc:
+            self._log(f"discovery: cannot listen for questions ({exc})")
+            return
         sock.settimeout(0.5)
         self._sock = sock
         threading.Thread(target=self._loop, daemon=True).start()
@@ -106,8 +82,86 @@ class Listener:
             except OSError:
                 pass
 
+    def _payload(self):
+        return json.dumps(self._payload_fn()).encode("utf-8")
+
     def _loop(self):
+        last_shout = 0.0
         while not self._stop.is_set():
+            try:
+                data, addr = self._sock.recvfrom(4096)
+            except (socket.timeout, TimeoutError):
+                data = None
+            except OSError:
+                return
+            if data:
+                try:
+                    msg = json.loads(data.decode("utf-8"))
+                except ValueError:
+                    msg = {}
+                if msg.get("app") == MAGIC and msg.get("q"):
+                    try:
+                        self._sock.sendto(self._payload(), addr)
+                    except OSError:
+                        pass
+
+            # Also say so unprompted, which reaches anyone without a firewall.
+            now = time.monotonic()
+            if now - last_shout > INTERVAL:
+                last_shout = now
+                blob = self._payload()
+                for target in _broadcast_addresses():
+                    try:
+                        self._sock.sendto(blob, (target, PORT))
+                    except OSError:
+                        pass
+
+
+class Seeker:
+    """On the computer being controlled: ask, and collect the answers.
+
+    Its socket is on a port of its own, so the replies arrive as answers to a
+    question this machine asked, and a firewall lets them through.
+    """
+
+    def __init__(self, ignore_id=None):
+        self.ignore_id = ignore_id or machine_id()
+        self._seen = {}
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
+        self._sock = None
+
+    def start(self):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        sock.bind(("0.0.0.0", 0))
+        sock.settimeout(0.5)
+        self._sock = sock
+        threading.Thread(target=self._loop, daemon=True).start()
+
+    def stop(self):
+        self._stop.set()
+        if self._sock:
+            try:
+                self._sock.close()
+            except OSError:
+                pass
+
+    def _ask(self):
+        question = json.dumps({"app": MAGIC, "q": 1}).encode("utf-8")
+        for target in _broadcast_addresses():
+            try:
+                self._sock.sendto(question, (target, PORT))
+            except OSError:
+                pass
+
+    def _loop(self):
+        last_ask = 0.0
+        while not self._stop.is_set():
+            now = time.monotonic()
+            if now - last_ask > INTERVAL:
+                last_ask = now
+                self._ask()
             try:
                 data, addr = self._sock.recvfrom(4096)
             except (socket.timeout, TimeoutError):
@@ -118,7 +172,7 @@ class Listener:
                 msg = json.loads(data.decode("utf-8"))
             except ValueError:
                 continue
-            if msg.get("app") != MAGIC or not msg.get("id"):
+            if msg.get("app") != MAGIC or not msg.get("id") or msg.get("q"):
                 continue
             if msg["id"] == self.ignore_id:
                 continue
@@ -137,11 +191,16 @@ class Listener:
         return sorted(items, key=lambda m: m.get("name", ""))
 
 
+# Old names, so nothing else has to care which way round it works.
+Announcer = Responder
+Listener = Seeker
+
+
 def scan(seconds=3.0, role=None):
-    """One-shot: listen for a few seconds and return what answered."""
-    listener = Listener()
-    listener.start()
+    """One-shot: ask, wait a few seconds, and return who answered."""
+    seeker = Seeker()
+    seeker.start()
     time.sleep(seconds)
-    found = listener.found(role=role)
-    listener.stop()
+    found = seeker.found(role=role)
+    seeker.stop()
     return found

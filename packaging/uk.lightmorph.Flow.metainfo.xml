@@ -80,6 +80,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.6.0" date="2026-09-17">
+      <description>
+        <p>The computer being controlled now asks, so a firewall on it needs no change at all.</p>
+      </description>
+    </release>
     <release version="0.5.3" date="2026-09-17">
       <description>
         <p>Says when a firewall is stopping the computers seeing each other, and offers to open it for you.</p>

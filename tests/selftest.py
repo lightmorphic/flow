@@ -174,20 +174,26 @@ for i in range(4):
 check("a new machine lands on a free edge each time", len(set(edges)) == 4, str(edges))
 
 print("-- finding each other --")
-ann = discovery.Announcer(lambda: {"app": discovery.MAGIC, "v": 1, "role": "server",
-                                   "id": "fake-server", "name": "Desk", "port": 24810,
-                                   "pairing": True})
-listener = discovery.Listener(ignore_id="me")
-listener.start()
-ann.start()
-time.sleep(2.5)
-found = listener.found(role="server")
-ann.stop()
-listener.stop()
-check("a machine announcing itself is found",
+responder = discovery.Responder(lambda: {"app": discovery.MAGIC, "v": 1, "role": "server",
+                                         "id": "fake-server", "name": "Desk", "port": 24810,
+                                         "pairing": True})
+responder.start()
+seeker = discovery.Seeker(ignore_id="me")
+seeker.start()
+time.sleep(3.0)
+found = seeker.found(role="server")
+check("asking finds the computer with the keyboard",
       any(f["id"] == "fake-server" and f["name"] == "Desk" for f in found), str(found))
-check("the announcement carries an address back",
+check("and the answer carries its address back",
       bool(found and found[0].get("host")), str(found[:1]))
+
+# The reply must come back to the asker's own port, which is what lets it
+# through a firewall. Check the seeker never binds the well-known one.
+asking_port = seeker._sock.getsockname()[1]
+check("the asker listens on a port of its own, not the shared one",
+      asking_port not in (0, discovery.PORT), str(asking_port))
+seeker.stop()
+responder.stop()
 
 print("-- pairing and the encrypted link --")
 

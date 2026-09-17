@@ -147,9 +147,10 @@ class Window(Adw.ApplicationWindow):
         if kind:
             row = Adw.ActionRow(
                 title="A firewall is in the way",
-                subtitle="Your computers cannot reach each other while "
-                         f"{kind} is blocking them. This opens the two ports "
-                         "Lightmorphic Flow uses, and nothing else.")
+                subtitle=f"{kind} is running here, and this computer has to "
+                         "accept the others reaching it. This opens the two "
+                         "ports Lightmorphic Flow uses and nothing else. The "
+                         "other computers need no change at all.")
             row.set_subtitle_lines(4)
             button = Gtk.Button(label="Allow it through", valign=Gtk.Align.CENTER)
             button.add_css_class("suggested-action")
@@ -162,16 +163,14 @@ class Window(Adw.ApplicationWindow):
         self.warning.set_title("Not working yet" if self._warning_rows else "")
 
     def _firewall_in_the_way(self):
-        """Only worth saying while nothing has actually been found."""
-        if self._firewall_opened:
+        """Only the computer with the keyboard has to accept anything coming
+        in. The controlled one only ever dials out, and a reply to its own
+        question is let back through, so it never needs a firewall changed."""
+        if self._firewall_opened or self.cfg["role"] != "server":
             return None
-        kind = firewall.running()
-        if kind is None:
+        if status.read().get("peers"):
             return None
-        if self.cfg["role"] == "server":
-            connected = status.read().get("peers")
-            return None if connected else kind
-        return None if self._found() else kind
+        return firewall.running()
 
     def _open_firewall(self, button, kind):
         button.set_sensitive(False)

@@ -33,7 +33,7 @@ Pure Python 3, no libraries to install, about 1,700 lines.
 ## Install (on every machine)
 
 ```
-sudo apt install ./lightmorphic-flow_0.5.3_all.deb
+sudo apt install ./lightmorphic-flow_0.6.0_all.deb
 ```
 
 That puts everything in place, including permission to read the mouse and
@@ -49,7 +49,7 @@ yourself to the `input` group instead.
 On Fedora, openSUSE and anything else that uses `.rpm`:
 
 ```
-sudo dnf install ./lightmorphic-flow-0.5.3-1.noarch.rpm
+sudo dnf install ./lightmorphic-flow-0.6.0-1.noarch.rpm
 ```
 
 To build either package yourself:
@@ -114,12 +114,16 @@ opens the settings window.
 
 ## Firewalls
 
-Flow needs two ports between your computers: **24810** over TCP for the mouse,
-keyboard and clipboard, and **24811** over UDP so they can find each other. A
-firewall blocks both by default and says nothing, so the two machines simply
-never see one another.
+Only the computer with the mouse and keyboard has to accept anything coming in:
+**24810** over TCP for the mouse, keyboard and clipboard, and **24811** over UDP
+for answering the others when they ask where it is.
 
-The settings window notices and offers to open them for you. By hand:
+The computers being controlled need nothing changed. They only ever dial out,
+and a firewall lets a reply to your own question back through as a matter of
+course.
+
+If the sharing machine has a firewall, the settings window notices and offers to
+open those two ports. By hand:
 
 ```
 sudo ufw allow Lightmorphic-Flow                       # ufw
