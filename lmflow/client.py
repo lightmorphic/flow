@@ -55,6 +55,7 @@ class Client:
             "running": self.running,
             "connected": self.conn is not None,
             "server": self.cfg.get("server_host") or "",
+            "server_name": self.cfg.get("server_name") or "",
             "active": None,
             "peers": [],
             "found": [{"id": f["id"], "name": f.get("name", f["host"]),
@@ -62,9 +63,18 @@ class Client:
                       for f in found],
         })
 
+    def _keep_publishing(self):
+        """The settings window reads this file. Left to the moments when
+        something happened, it could sit there saying 'nothing found' while
+        perfectly well connected."""
+        while self.running:
+            self.publish()
+            time.sleep(2.0)
+
     def run(self):
         self.running = True
         self._open_devices()
+        threading.Thread(target=self._keep_publishing, daemon=True).start()
         if self.cfg["share_clipboard"]:
             self.clipboard.start()
         if self.cfg["discovery"]:
@@ -175,6 +185,8 @@ class Client:
             changed["server_fingerprint"] = fingerprint
         if info.get("id") and self.cfg.get("server_id") != info["id"]:
             changed["server_id"] = info["id"]
+        if info.get("name") and self.cfg.get("server_name") != info["name"]:
+            changed["server_name"] = info["name"]
         for key, value in changed.items():
             self.cfg[key] = value
             config.set_value(key, value)
@@ -191,6 +203,14 @@ class Client:
             self._place(int(pos["x"]), int(pos["y"]))
         elif kind == protocol.CLIPBOARD and self.cfg["share_clipboard"]:
             self.clipboard.apply(body.decode("utf-8", "replace"))
+        elif kind == protocol.PING:
+            with self._lock:
+                conn = self.conn
+            if conn is not None:
+                try:
+                    conn.sendall(protocol.pack(protocol.PONG, b""))
+                except OSError:
+                    pass
         elif kind == protocol.HELLO:
             pass
 

@@ -316,6 +316,21 @@ class Window(Adw.ApplicationWindow):
             self._show_allow()
         else:
             self.machines.set_title("Computer controlling me")
+            state = status.read()
+            if state.get("connected"):
+                who = state.get("server_name") or state.get("server") or "the other computer"
+                self.machines.set_description("")
+                row = Adw.ActionRow(
+                    title=f"Connected to {who}",
+                    subtitle="Its mouse and keyboard reach this screen when you "
+                             "push the pointer off the matching edge over there.")
+                row.set_subtitle_lines(2)
+                dot = Gtk.Image.new_from_icon_name("emblem-ok-symbolic")
+                dot.add_css_class("success")
+                row.add_prefix(dot)
+                self._add_row(row)
+                self._add_row(self._code_row())
+                return
             self.machines.set_description(
                 "Pick the one with the mouse and keyboard, then press Allow over there.")
             found = self._found()
@@ -503,7 +518,8 @@ class Window(Adw.ApplicationWindow):
             self.cfg = fresh
         if self.cfg["role"] == "client":
             self._own_listener()
-            signature = [(f["id"], f.get("pairing")) for f in self._found()]
+            signature = [status.read().get("connected")] + \
+                [(f["id"], f.get("pairing")) for f in self._found()]
             if signature != self._found_signature:
                 self._found_signature = signature
                 changed = True

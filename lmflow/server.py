@@ -6,8 +6,10 @@ from __future__ import annotations
 
 import errno
 import json
+import queue
 import selectors
 import socket
+import struct
 import ssl
 import threading
 import time
@@ -20,12 +22,23 @@ from .linux_input import (EV_KEY, EV_REL, InputError, InputReader, REL_X, REL_Y,
 from .touchpad import TouchpadTranslator
 
 RESCAN_SECONDS = 3.0
+HEARTBEAT_SECONDS = 2.0
+WATCHDOG_SECONDS = 4.0
+SILENCE_SECONDS = 6.0
 EDGES = ("right", "left", "top", "bottom")
 OPPOSITE = {"right": "left", "left": "right", "top": "bottom", "bottom": "top"}
 
 
 class Peer:
-    """One connected machine."""
+    """One connected machine.
+
+    Everything is handed to a thread of its own to write. The loop that reads
+    your mouse must never wait on the network: if the other machine stops
+    reading, a direct send blocks for ever, and it blocks while your keyboard
+    and mouse are held - which locks the computer you are sitting at.
+    """
+
+    OUTBOX = 512            # frames; a few seconds of furious mousing
 
     def __init__(self, ident, name, conn, size, edge):
         self.id = ident
@@ -33,13 +46,44 @@ class Peer:
         self.conn = conn
         self.size = size
         self.edge = edge
+        self.heard = time.monotonic()
+        self.alive = True
+        self.outbox = queue.Queue(maxsize=self.OUTBOX)
+        self._writer = threading.Thread(target=self._write_loop, daemon=True)
+        self._writer.start()
 
     def send(self, blob):
-        try:
-            self.conn.sendall(blob)
-            return True
-        except OSError:
+        """Never waits. False means this machine is not keeping up."""
+        if not self.alive:
             return False
+        try:
+            self.outbox.put_nowait(blob)
+        except queue.Full:
+            self.alive = False
+            return False
+        return True
+
+    def _write_loop(self):
+        while True:
+            blob = self.outbox.get()
+            if blob is None:
+                return
+            try:
+                self.conn.sendall(blob)
+            except (OSError, ValueError):
+                self.alive = False
+                return
+
+    def close(self):
+        self.alive = False
+        try:
+            self.outbox.put_nowait(None)
+        except queue.Full:
+            pass
+        try:
+            self.conn.close()
+        except OSError:
+            pass
 
 
 class Server:
@@ -67,6 +111,7 @@ class Server:
 
         self.peers = {}                        # id -> Peer
         self._peers_lock = threading.Lock()
+        self._alive_at = time.monotonic()
 
         self.clipboard = Clipboard(self._broadcast_clipboard,
                                    self.cfg["clipboard_poll_ms"], log=self.log)
@@ -75,6 +120,8 @@ class Server:
         self.hotkeys = HotkeyWatcher()
         self.hotkeys.bind(self.cfg["hotkey_switch"], self.cycle)
         self.hotkeys.bind(self.cfg["hotkey_panic"], self.panic)
+        self.hotkeys.bind_panic(self.panic)
+        self._last_ping = 0.0
 
     # ------------------------------------------------------------- discovery
     def _announcement(self):
@@ -252,8 +299,9 @@ class Server:
             wanted = [e for e in EDGES
                       if touching[e] and pressing[e] > 0 and self.peer_on(e)]
         else:
-            back = OPPOSITE[self.active.edge]
-            wanted = [back] if (touching[back] and pressing[back] > 0) else []
+            # Any edge brings you home, not only the one you came in by. Being
+            # stuck on another machine is far worse than crossing back early.
+            wanted = [e for e in EDGES if touching[e] and pressing[e] > 0]
 
         if not wanted:
             self._push = 0.0
@@ -261,11 +309,12 @@ class Server:
             return
         edge = wanted[0]
 
-        guard = float(self.cfg["corner_guard_px"])
-        along, span = (self.y, h) if edge in ("left", "right") else (self.x, w)
-        if along < guard or along > span - guard:
-            self._push = 0.0                   # hot corners belong to the desktop
-            return
+        if self.active is None:
+            guard = float(self.cfg["corner_guard_px"])
+            along, span = (self.y, h) if edge in ("left", "right") else (self.x, w)
+            if along < guard or along > span - guard:
+                self._push = 0.0               # hot corners belong to the desktop
+                return
 
         now = time.monotonic()
         if edge != self._push_edge or now - self._push_started > self.cfg["push_ms"] / 1000.0:
@@ -307,9 +356,26 @@ class Server:
             self.active.send(protocol.pack_events(self._batch))
         self._batch.clear()
 
+    def _watchdog(self):
+        """Whatever else goes wrong, the computer you are sitting at gets its
+        mouse and keyboard back. If the loop that reads them stops turning for
+        a few seconds, let go of everything."""
+        released = False
+        while self.running:
+            time.sleep(1.0)
+            stalled = time.monotonic() - self._alive_at > WATCHDOG_SECONDS
+            if stalled and not released and any(r.grabbed for r in self._readers.values()):
+                released = True
+                self.log("stopped responding - letting go of the mouse and keyboard")
+                for reader in list(self._readers.values()):
+                    reader.ungrab()
+            elif not stalled:
+                released = False
+
     def run(self):
         self.running = True
         self._scan_devices()
+        threading.Thread(target=self._watchdog, daemon=True).start()
         threading.Thread(target=self._accept_loop, daemon=True).start()
         if self.cfg["share_clipboard"]:
             self.clipboard.start()
@@ -323,6 +389,7 @@ class Server:
                 for key, _ in self._selector.select(timeout=0.2):
                     self._handle(key.data)
                 now = time.monotonic()
+                self._alive_at = now
                 if now - last_scan > RESCAN_SECONDS:
                     last_scan = now
                     self._scan_devices()
@@ -332,8 +399,32 @@ class Server:
                 if now - last_command > 0.2:
                     last_command = now
                     self._take_command()
+                self._watch_the_peer(now)
         finally:
             self.stop()
+
+    def _watch_the_peer(self, now):
+        """While your mouse is on another machine, that machine must keep
+        answering. If it stops, the mouse comes back here rather than being
+        typed into nothing."""
+        peer = self.active
+        if peer is None:
+            return
+        if not peer.alive:
+            self.log(f"{peer.name} is not keeping up - bringing the pointer back")
+            self.go_local()
+            self._drop(peer)
+            return
+        if now - self._last_ping > HEARTBEAT_SECONDS:
+            self._last_ping = now
+            if not peer.send(protocol.pack(protocol.PING, b"")):
+                self.log(f"{peer.name} stopped answering")
+                self._drop(peer)
+                return
+        if now - peer.heard > SILENCE_SECONDS:
+            self.log(f"{peer.name} has gone quiet - bringing the pointer back")
+            self.go_local()
+            self._drop(peer)
 
     def _take_command(self):
         command = status.take()
@@ -400,10 +491,7 @@ class Server:
         if self.active is peer:
             self.active = None
             self._grab_all(False)
-        try:
-            peer.conn.close()
-        except OSError:
-            pass
+        peer.close()
         self.log(f"{peer.name} disconnected")
         self.publish()
 
@@ -424,6 +512,8 @@ class Server:
 
     def _greet(self, ctx, raw, addr):
         try:
+            raw.setsockopt(socket.SOL_SOCKET, socket.SO_SNDTIMEO,
+                           struct.pack("ll", 5, 0))
             conn = ctx.wrap_socket(raw, server_side=True)
             hello = self._read_hello(conn)
         except (OSError, ssl.SSLError) as exc:
@@ -457,10 +547,7 @@ class Server:
             old = self.peers.get(ident)
             self.peers[ident] = peer
         if old is not None:
-            try:
-                old.conn.close()
-            except OSError:
-                pass
+            old.close()
         conn.sendall(protocol.pack_json(protocol.HELLO, {
             "width": self.width, "height": self.height,
             "token": self.cfg["token"], "name": discovery.machine_name(),
@@ -503,6 +590,7 @@ class Server:
             if not data:
                 self._drop(peer)
                 return
+            peer.heard = time.monotonic()
             for kind, body in framer.feed(data):
                 if kind == protocol.CLIPBOARD and self.cfg["share_clipboard"]:
                     text = body.decode("utf-8", "replace")

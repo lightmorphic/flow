@@ -17,6 +17,7 @@ DEFAULTS = {
     "server_host": "",           # client only: where the server is
     "server_fingerprint": "",    # client only: pinned certificate
     "server_id": "",             # client only: which machine we paired with
+    "server_name": "",           # client only: what it calls itself
     "token": "",
 
     "screen_width": 1920,

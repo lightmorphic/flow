@@ -33,7 +33,7 @@ Pure Python 3, no libraries to install, about 1,700 lines.
 ## Install (on every machine)
 
 ```
-sudo apt install ./lightmorphic-flow_0.6.0_all.deb
+sudo apt install ./lightmorphic-flow_0.6.1_all.deb
 ```
 
 That puts everything in place, including permission to read the mouse and
@@ -49,7 +49,7 @@ yourself to the `input` group instead.
 On Fedora, openSUSE and anything else that uses `.rpm`:
 
 ```
-sudo dnf install ./lightmorphic-flow-0.6.0-1.noarch.rpm
+sudo dnf install ./lightmorphic-flow-0.6.1-1.noarch.rpm
 ```
 
 To build either package yourself:
@@ -136,9 +136,14 @@ The package ships both profiles; it does not open anything by itself.
 
 * `Ctrl+Alt+S` - step through each computer in turn and back to this one.
 * `Ctrl+Alt+Shift+K` - panic key. Brings everything back to this machine.
+* `Escape` five times quickly - the same thing, with nothing to hold down.
+  This is the one to remember.
 
-If it ever stops responding while the pointer is away, killing it releases the
-mouse and keyboard immediately.
+Any edge of the other machine's screen brings the pointer home, not only the one
+you crossed by, and corners are no exception. If the other machine goes quiet or
+stops keeping up, the pointer comes back on its own. If Flow itself stops
+responding for four seconds it lets go of your mouse and keyboard without being
+asked. And killing it releases them immediately.
 
 ## Security
 

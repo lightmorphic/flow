@@ -39,12 +39,24 @@ def parse(spec: str):
     return frozenset(mods), key
 
 
+KEY_ESC = 1
+ESCAPES_TO_PANIC = 5
+ESCAPE_WINDOW = 2.0
+
+
 class HotkeyWatcher:
     """Tracks which modifiers are held and fires callbacks on matching presses."""
 
     def __init__(self):
         self._held = set()
         self._bindings = []
+        self._panic = None
+        self._escapes = []
+
+    def bind_panic(self, callback):
+        """Escape, five times, inside two seconds. Nothing to remember and
+        nothing to hold down - the way out when everything else has failed."""
+        self._panic = callback
 
     def bind(self, spec, callback):
         parsed = parse(spec)
@@ -54,6 +66,15 @@ class HotkeyWatcher:
 
     def feed(self, code: int, value: int) -> bool:
         """Returns True if the event was a registered hotkey press (swallow it)."""
+        if code == KEY_ESC and value == 1 and self._panic is not None:
+            import time
+            now = time.monotonic()
+            self._escapes = [t for t in self._escapes if now - t < ESCAPE_WINDOW]
+            self._escapes.append(now)
+            if len(self._escapes) >= ESCAPES_TO_PANIC:
+                self._escapes = []
+                self._panic()
+                return True
         for name, codes in MODIFIERS.items():
             if code in codes:
                 if value:

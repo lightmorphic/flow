@@ -17,6 +17,9 @@ config.PAIR_PATH = os.path.join(config.CONFIG_DIR, "pairing-open-until")
 
 from lmflow import (client as client_mod, discovery, net, protocol,  # noqa: E402
                     screen, server as server_mod, status)
+from lmflow.hotkeys import HotkeyWatcher  # noqa: E402
+
+server_mod.HotkeyWatcher = HotkeyWatcher
 
 status.STATUS_PATH = os.path.join(config.CONFIG_DIR, "status.json")
 status.COMMAND_PATH = os.path.join(config.CONFIG_DIR, "command")
@@ -158,12 +161,14 @@ s.cycle()
 check("the hotkey steps through every machine and home",
       first is a and second is b and third is c and s.active is None)
 
-clip_sent = []
+time.sleep(0.3)                      # let the earlier traffic drain first
 for peer in (a, b, c):
     peer.conn.sent.clear()
 s._broadcast_clipboard("shared text", skip="tv")
+time.sleep(0.3)                      # the writer threads deliver it
 check("clipboard goes to every machine but the sender",
-      len(a.conn.sent) == 1 and len(c.conn.sent) == 1 and len(b.conn.sent) == 0)
+      len(a.conn.sent) == 1 and len(c.conn.sent) == 1 and len(b.conn.sent) == 0,
+      f"{len(a.conn.sent)}/{len(b.conn.sent)}/{len(c.conn.sent)}")
 
 s = make_server()
 edges = []
@@ -287,6 +292,91 @@ check("two machines are driven at once, on different edges",
 srv.stop()
 known.stop()
 joiner.stop()
+
+print("-- getting back --")
+r = make_server()
+far = add_peer(r, "desktop", "right", (1920, 1080))
+r.x, r.y = 999, 400
+for _ in range(20):
+    r._move(5, 0)
+    if r.active is far:
+        break
+check("the pointer went across", r.active is far)
+
+# Stuck in the top-left corner of the other screen: every edge must bring you
+# home, corners included, or there is no way back.
+r.x, r.y = 0, 0
+for _ in range(40):
+    r._move(0, -5)
+check("pushing up from a corner comes home", r.active is None)
+
+r.x, r.y = 999, 400
+for _ in range(20):
+    r._move(5, 0)
+    if r.active is far:
+        break
+check("across again", r.active is far)
+r.x, r.y = 1919, 540
+for _ in range(40):
+    r._move(5, 0)
+    if r.active is None:
+        break
+check("so does the far edge, not only the one you came in by", r.active is None)
+
+print("-- the computer you are sitting at must never freeze --")
+class Deaf:
+    """A machine that stops reading: a real send would block for ever."""
+    def __init__(self): self.stuck = threading.Event()
+    def sendall(self, blob): self.stuck.wait()
+    def close(self): self.stuck.set()
+
+f = make_server()
+deaf = server_mod.Peer("deaf", "deaf", Deaf(), (1000, 800), "right")
+f.peers["deaf"] = deaf
+f.x, f.y = 999, 400
+f.go_to(deaf)
+start = time.monotonic()
+for _ in range(server_mod.Peer.OUTBOX + 50):
+    f._batch = [(2, 0, 3)]
+    f._flush()
+spent = time.monotonic() - start
+check("sending to a machine that has stopped reading never blocks", spent < 2.0,
+      f"{spent:.2f}s for {server_mod.Peer.OUTBOX + 50} frames")
+check("and that machine is marked as not keeping up", not deaf.alive)
+f._watch_the_peer(time.monotonic())
+check("so the pointer comes back by itself", f.active is None)
+
+esc = server_mod.HotkeyWatcher()
+brought_home = []
+esc.bind_panic(lambda: brought_home.append(True))
+for _ in range(4):
+    esc.feed(1, 1); esc.feed(1, 0)
+check("four escapes do nothing", not brought_home)
+esc.feed(1, 1)
+check("five escapes bring it home", bool(brought_home))
+
+q = make_server()
+quiet = add_peer(q, "desktop", "right")
+q.x, q.y = 999, 400
+q.go_to(quiet)
+check("pointer is away", q.active is quiet)
+quiet.heard = time.monotonic() - (server_mod.SILENCE_SECONDS + 1)
+q._watch_the_peer(time.monotonic())
+check("a computer that goes quiet gives the mouse back", q.active is None)
+
+class FakeReader:
+    def __init__(self): self.grabbed = True
+    def ungrab(self): self.grabbed = False
+
+w = make_server()
+w.running = True
+w._readers = {"a": FakeReader(), "b": FakeReader()}
+w._alive_at = time.monotonic() - (server_mod.WATCHDOG_SECONDS + 2)
+threading.Thread(target=w._watchdog, daemon=True).start()
+time.sleep(1.4)
+check("if it stops responding it lets go of the keyboard anyway",
+      not any(r.grabbed for r in w._readers.values()))
+w.running = False
 
 print("-- what the tray is shown --")
 t = make_server()
