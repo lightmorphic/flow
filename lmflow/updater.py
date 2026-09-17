@@ -123,11 +123,17 @@ class Updater:
         threading.Thread(target=self._download, daemon=True).start()
 
     def _asset(self):
+        """The package for this machine, and for this release rather than an
+        older one that happens to be attached to it as well."""
         want = _package_kind()
         assets = self.release.get("assets", []) if self.release else []
-        for asset in assets:
-            if want and asset.get("name", "").endswith(want):
+        tag = (self.release.get("tag_name") or "").lstrip("vV")
+        matching = [a for a in assets if want and a.get("name", "").endswith(want)]
+        for asset in matching:
+            if tag and tag in asset.get("name", ""):
                 return asset
+        if matching:
+            return matching[0]
         return assets[0] if assets else None
 
     def _download(self):
