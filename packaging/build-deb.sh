@@ -30,6 +30,8 @@ for role in server client tray; do
 Description=Lightmorphic Flow ($role)
 After=graphical-session.target
 PartOf=graphical-session.target
+StartLimitIntervalSec=120
+StartLimitBurst=4
 
 [Service]
 Type=simple
@@ -116,20 +118,8 @@ for icon in uk.lightmorph.Flow uk.lightmorph.Flow-away; do
   done
 done
 
-# The tray icon starts itself at login; the sharing service is yours to turn on.
-install -d "$stage/etc/xdg/autostart"
-cat > "$stage/etc/xdg/autostart/uk.lightmorph.Flow.tray.desktop" <<'AUTO'
-[Desktop Entry]
-Type=Application
-Name=Lightmorphic Flow tray icon
-Comment=Shows where the pointer is and where to send it
-Exec=lmflow tray
-Icon=uk.lightmorph.Flow
-Terminal=false
-NoDisplay=true
-X-GNOME-Autostart-enabled=true
-AUTO
-chmod 0644 "$stage/etc/xdg/autostart/uk.lightmorph.Flow.tray.desktop"
+# The tray is started by its user service alone. Two things starting it
+# meant two launches at every login, and a flash in the dock for each.
 
 install -d "$stage/usr/share/doc/lmflow"
 install -m 0644 "$root/README.md" "$stage/usr/share/doc/lmflow/README.md"
@@ -195,6 +185,7 @@ if [ "$1" = "configure" ]; then
     if [ -x /usr/bin/firewall-cmd ]; then firewall-cmd --reload >/dev/null 2>&1 || true; fi
     systemctl daemon-reload >/dev/null 2>&1 || true
     systemctl --global enable lmflow-tray.service >/dev/null 2>&1 || true
+    rm -f /etc/xdg/autostart/uk.lightmorph.Flow.tray.desktop
     echo ""
     echo "  Lightmorphic Flow is ready. Open it from your applications."
     echo "  If it tells you it cannot read your mouse, log out and back in once."

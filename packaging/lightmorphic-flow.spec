@@ -1,5 +1,5 @@
 Name:           lightmorphic-flow
-Version:        0.6.5
+Version:        0.6.6
 Release:        1%{?dist}
 Summary:        Share one mouse, keyboard and clipboard between Linux computers
 
@@ -142,18 +142,6 @@ for icon in uk.lightmorph.Flow uk.lightmorph.Flow-away; do
     done
 done
 
-install -d %{buildroot}%{_sysconfdir}/xdg/autostart
-cat > %{buildroot}%{_sysconfdir}/xdg/autostart/uk.lightmorph.Flow.tray.desktop <<'AUTO'
-[Desktop Entry]
-Type=Application
-Name=Lightmorphic Flow tray icon
-Comment=Shows where the pointer is and where to send it
-Exec=lmflow tray
-Icon=uk.lightmorph.Flow
-Terminal=false
-NoDisplay=true
-X-GNOME-Autostart-enabled=true
-AUTO
 
 %post
 getent group input >/dev/null || groupadd -r input || :
@@ -175,6 +163,7 @@ if [ -d /run/udev ]; then
 fi
 systemctl daemon-reload >/dev/null 2>&1 || :
     systemctl --global enable lmflow-tray.service >/dev/null 2>&1 || :
+rm -f %{_sysconfdir}/xdg/autostart/uk.lightmorph.Flow.tray.desktop
 echo ""
 echo "  Lightmorphic Flow is ready. Open it from your applications."
 echo "  If it tells you it cannot read your mouse, log out and back in once."
@@ -193,7 +182,6 @@ fi
 %{userunitdir}/lmflow-server.service
 %{userunitdir}/lmflow-client.service
 %{userunitdir}/lmflow-tray.service
-%config(noreplace) %{_sysconfdir}/xdg/autostart/uk.lightmorph.Flow.tray.desktop
 %config(noreplace) %{_sysconfdir}/ufw/applications.d/lightmorphic-flow
 %{_prefix}/lib/firewalld/services/lightmorphic-flow.xml
 %{udevruledir}/60-lmflow.rules
@@ -204,6 +192,9 @@ fi
 %{_datadir}/icons/hicolor/*/apps/uk.lightmorph.Flow*.png
 
 %changelog
+* Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.6.6-1
+- A service that cannot start gives up instead of flashing for ever
+
 * Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.6.5-1
 - No more stray flickering icon in the dock
 
