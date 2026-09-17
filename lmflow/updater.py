@@ -15,7 +15,7 @@ import urllib.request
 from . import __version__
 
 REPO = "lightmorphic/flow"
-API = f"https://api.github.com/repos/{REPO}/releases/latest"
+API = f"https://api.github.com/repos/{REPO}/releases?per_page=10"
 WEBSITE = "https://flow.lightmorphic.com"
 CACHE = os.path.expanduser("~/.cache/lmflow")
 CHECK_SECONDS = 30 * 60
@@ -45,6 +45,14 @@ def parse_version(text):
 
 def newer(remote, local=__version__):
     return parse_version(remote) > parse_version(local)
+
+
+def newest(releases):
+    """The newest published release, pre-release or not."""
+    published = [r for r in releases if isinstance(r, dict) and not r.get("draft")]
+    if not published:
+        return None
+    return max(published, key=lambda r: parse_version(r.get("tag_name") or ""))
 
 
 def _package_kind():
@@ -86,12 +94,18 @@ class Updater:
                     API, headers={"Accept": "application/vnd.github+json",
                                   "User-Agent": f"lmflow/{__version__}"})
                 with urllib.request.urlopen(request, timeout=15) as response:
-                    release = json.loads(response.read().decode("utf-8"))
+                    releases = json.loads(response.read().decode("utf-8"))
             except (urllib.error.URLError, OSError, ValueError, TimeoutError) as exc:
                 self.log(f"update check failed: {exc}")
                 self._set(OFFLINE)
                 return
 
+            # Not /releases/latest: that endpoint hides pre-releases, and while
+            # this is beta every release is one.
+            release = newest(releases)
+            if release is None:
+                self._set(UP_TO_DATE, note="no update available" if manual else None)
+                return
             tag = release.get("tag_name") or release.get("name") or ""
             if newer(tag):
                 self.release = release
