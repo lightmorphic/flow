@@ -29,9 +29,35 @@
   </description>
 
   <launchable type="desktop-id">uk.lightmorph.Flow.desktop</launchable>
+  <provides>
+    <binary>lmflow</binary>
+  </provides>
+
+  <icon type="stock">uk.lightmorph.Flow</icon>
+  <icon type="remote" width="128" height="128">https://flow.lightmorphic.com/images/icons/128.png</icon>
+  <icon type="remote" width="256" height="256">https://flow.lightmorphic.com/images/icons/256.png</icon>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#fff2c2</color>
+    <color type="primary" scheme_preference="dark">#4b3c05</color>
+  </branding>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>Say which computer sits on which edge of your screen</caption>
+      <image type="source" width="900" height="660">https://flow.lightmorphic.com/images/screenshots/settings.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Choose how hard you must push before the pointer crosses over</caption>
+      <image type="source" width="900" height="660">https://flow.lightmorphic.com/images/screenshots/crossing.png</image>
+    </screenshot>
+  </screenshots>
+
   <url type="homepage">https://flow.lightmorphic.com</url>
+  <url type="help">https://flow.lightmorphic.com#faq</url>
   <url type="bugtracker">https://github.com/lightmorphic/flow/issues</url>
   <url type="vcs-browser">https://github.com/lightmorphic/flow</url>
+  <url type="contact">https://github.com/lightmorphic/flow/issues</url>
 
   <categories>
     <category>Utility</category>

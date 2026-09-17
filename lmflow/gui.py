@@ -52,10 +52,10 @@ class Window(Adw.ApplicationWindow):
             print(f"update dot could not be created: {exc}", file=sys.stderr)
         box.append(header)
 
-        scroller = Gtk.ScrolledWindow(vexpand=True)
-        self.page = Adw.PreferencesPage()
-        scroller.set_child(self.page)
-        box.append(scroller)
+        # Adw.PreferencesPage scrolls itself; wrapping it in another scroller
+        # nests two of them and neither ends up scrolling properly.
+        self.page = Adw.PreferencesPage(vexpand=True)
+        box.append(self.page)
         self.toasts.set_child(box)
 
         self.warning = Adw.PreferencesGroup()

@@ -472,3 +472,17 @@ section[id] { scroll-margin-top: 5.5rem; }
   background: none; border: 2px solid var(--muted-fg);
   width: .8rem; height: .8rem;
 }
+
+
+/* ---- screenshots ------------------------------------------------------ */
+
+.shot { margin: 1.5rem 0 0; }
+.shot img {
+  display: block; max-width: 100%; height: auto;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  box-shadow: var(--shadow-panel);
+}
+.shot figcaption {
+  margin-top: .75rem; color: var(--muted-fg); font-size: .875rem;
+}
