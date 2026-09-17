@@ -9,7 +9,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, GLib, Gtk          # noqa: E402
 
-from . import config, discovery, pairing, screen        # noqa: E402
+from . import config, discovery, pairing, screen, status  # noqa: E402
 from .updatedot import UpdateDot                        # noqa: E402
 from .updater import WEBSITE                            # noqa: E402
 
@@ -65,12 +65,31 @@ class Window(Adw.ApplicationWindow):
         self.page.add(self._group_edges())
         self.page.add(self._group_extras())
 
-        self.listener = discovery.Listener()
-        self.listener.start()
+        # If the background service is already listening, read what it found
+        # rather than opening a second socket that would take half the traffic.
+        self.listener = None
+        self._own_listener()
 
         self._rebuild_machines()
         self._refresh_power()
         GLib.timeout_add_seconds(2, self._tick)
+
+    def _own_listener(self):
+        """Listen here only while the service is not."""
+        daemon_listening = self.cfg["role"] == "client" and status.read().get("running")
+        if daemon_listening:
+            if self.listener is not None:
+                self.listener.stop()
+                self.listener = None
+            return
+        if self.listener is None:
+            self.listener = discovery.Listener()
+            self.listener.start()
+
+    def _found(self):
+        if self.listener is not None:
+            return self.listener.found(role="server")
+        return status.read().get("found", [])
 
     # ---------------------------------------------------------------- groups
     def _brand(self):
@@ -195,7 +214,7 @@ class Window(Adw.ApplicationWindow):
             self.machines.set_title("Computer controlling me")
             self.machines.set_description(
                 "Pick the one with the mouse and keyboard, then press Allow over there.")
-            found = self.listener.found(role="server")
+            found = self._found()
             chosen = self.cfg.get("server_id")
             for entry in found:
                 row = Adw.ActionRow(
@@ -354,7 +373,8 @@ class Window(Adw.ApplicationWindow):
         if changed:
             self.cfg = fresh
         if self.cfg["role"] == "client":
-            signature = [(f["id"], f.get("pairing")) for f in self.listener.found(role="server")]
+            self._own_listener()
+            signature = [(f["id"], f.get("pairing")) for f in self._found()]
             if signature != self._found_signature:
                 self._found_signature = signature
                 changed = True

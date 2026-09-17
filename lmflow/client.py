@@ -6,7 +6,7 @@ import ssl
 import threading
 import time
 
-from . import config, discovery, net, protocol, screen
+from . import config, discovery, net, protocol, screen, status
 from .clipboard import Clipboard
 from .linux_input import (EV_KEY, EV_REL, InputError, REL_X, REL_Y, VirtualDevice)
 
@@ -48,6 +48,20 @@ class Client:
         self.pointer = self.keyboard = None
 
     # ---------------------------------------------------------------- running
+    def publish(self):
+        found = self.listener.found(role="server") if self.listener else []
+        status.write({
+            "role": "client",
+            "running": self.running,
+            "connected": self.conn is not None,
+            "server": self.cfg.get("server_host") or "",
+            "active": None,
+            "peers": [],
+            "found": [{"id": f["id"], "name": f.get("name", f["host"]),
+                       "host": f["host"], "pairing": bool(f.get("pairing"))}
+                      for f in found],
+        })
+
     def run(self):
         self.running = True
         self._open_devices()
@@ -59,15 +73,18 @@ class Client:
         self.log(f"screen {self.width}x{self.height}; looking for the other machine")
         while self.running:
             try:
+                self.publish()
                 self._session()
             except (OSError, ssl.SSLError, ValueError) as exc:
                 self.log(f"not connected ({exc}); retrying")
+            self.publish()
             if self.running:
                 time.sleep(RECONNECT_SECONDS)
         self.stop()
 
     def stop(self):
         self.running = False
+        status.clear()
         self.clipboard.stop()
         if self.listener is not None:
             self.listener.stop()
@@ -127,6 +144,7 @@ class Client:
         with self._lock:
             self.conn = conn
         self.log("connected")
+        self.publish()
 
         try:
             while self.running:
