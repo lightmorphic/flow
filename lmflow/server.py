@@ -106,7 +106,9 @@ class Server:
             except OSError as exc:
                 if exc.errno == errno.EACCES:
                     raise InputError(
-                        f"no permission to read {info.path} - log out and back in once"
+                        f"no permission to read {info.path}. If you have just "
+                        "installed Lightmorphic Flow, log out and back in once - "
+                        "your session is still carrying the old group list."
                     ) from exc
                 continue
             self._readers[info.path] = reader

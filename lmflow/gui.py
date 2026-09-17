@@ -50,13 +50,13 @@ class Window(Adw.ApplicationWindow):
         header = Adw.HeaderBar()
         header.set_title_widget(Gtk.Label(label=""))
         header.pack_start(self._brand())
-        header.pack_end(UpdateDot())
         box.append(header)
 
         scroller = Gtk.ScrolledWindow(vexpand=True)
         self.page = Adw.PreferencesPage()
         scroller.set_child(self.page)
         box.append(scroller)
+        box.append(UpdateDot())        # the one update control, bottom right
         self.toasts.set_child(box)
 
         self.page.add(self._group_role())

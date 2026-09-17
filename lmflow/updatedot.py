@@ -12,13 +12,14 @@ from gi.repository import GLib, Gtk                   # noqa: E402
 
 from . import __version__, updater as up              # noqa: E402
 
+# The house palette: green #4BAE4F, amber #FFC006, blue #2295F1, red #F34236.
 COLOURS = {
-    up.UP_TO_DATE: (0.29, 0.87, 0.50),
-    up.AVAILABLE: (0.98, 0.75, 0.14),
-    up.READY: (0.38, 0.65, 0.98),
-    up.OFFLINE: (0.97, 0.44, 0.44),
+    up.UP_TO_DATE: (0.294, 0.682, 0.310),
+    up.AVAILABLE: (1.000, 0.753, 0.024),
+    up.READY: (0.133, 0.584, 0.945),
+    up.OFFLINE: (0.953, 0.259, 0.212),
 }
-RING_TRACK = (1, 1, 1, 0.22)
+RING_TRACK = (0.631, 0.631, 0.667, 0.55)
 TEXT_SIZE = 12
 PAD = 4          # breathing room around the dot, not part of its diameter
 
@@ -27,7 +28,11 @@ class UpdateDot(Gtk.Box):
     """The version number, then the one dot. Nothing else."""
 
     def __init__(self, log=print):
-        super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.set_halign(Gtk.Align.END)
+        self.set_margin_end(16)
+        self.set_margin_bottom(12)
+        self.set_margin_top(2)
         self._diameter = TEXT_SIZE * 2
         self.set_valign(Gtk.Align.CENTER)
         self.log = log

@@ -464,10 +464,10 @@ section[id] { scroll-margin-top: 5.5rem; }
 
 /* ---- the update dot on the page -------------------------------------- */
 
-.dot-legend .dot.green { background: #4ade80; }
-.dot-legend .dot.yellow { background: #fbc711; }
-.dot-legend .dot.blue { background: #60a5fa; }
-.dot-legend .dot.red { background: #f87171; }
+.dot-legend .dot.green { background: #4bae4f; }
+.dot-legend .dot.yellow { background: #ffc006; }
+.dot-legend .dot.blue { background: #2295f1; }
+.dot-legend .dot.red { background: #f34236; }
 .dot-legend .dot.ring {
   background: none; border: 2px solid var(--muted-fg);
   width: .8rem; height: .8rem;

@@ -184,23 +184,32 @@ def cmd_forget(args):
 
 
 def cmd_server(args):
+    from .linux_input import InputError
     from .server import Server
-    cfg = config.load()
-    server = Server(cfg)
-    _install_stop(server)
-    if args.test_seconds:
-        _auto_stop(server, args.test_seconds)
-    server.run()
+    try:
+        server = Server(config.load())
+        _install_stop(server)
+        if args.test_seconds:
+            _auto_stop(server, args.test_seconds)
+        server.run()
+    except InputError as exc:
+        print(exc, file=sys.stderr)
+        return 1
     return 0
 
 
 def cmd_client(args):
     from .client import Client
-    client = Client(config.load())
-    _install_stop(client)
-    if args.test_seconds:
-        _auto_stop(client, args.test_seconds)
-    client.run()
+    from .linux_input import InputError
+    try:
+        client = Client(config.load())
+        _install_stop(client)
+        if args.test_seconds:
+            _auto_stop(client, args.test_seconds)
+        client.run()
+    except InputError as exc:
+        print(exc, file=sys.stderr)
+        return 1
     return 0
 
 

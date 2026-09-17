@@ -174,7 +174,9 @@ class VirtualDevice:
             self.fd = os.open("/dev/uinput", os.O_WRONLY | os.O_NONBLOCK)
         except OSError as exc:
             raise InputError(
-                "cannot open /dev/uinput - run 'lmflow setup' once to grant access"
+                "no permission to use /dev/uinput. If you have just installed "
+                "Lightmorphic Flow, log out and back in once - your session is "
+                "still carrying the old group list."
             ) from exc
 
         fcntl.ioctl(self.fd, UI_SET_EVBIT, EV_KEY)
