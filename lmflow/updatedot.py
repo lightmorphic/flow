@@ -47,12 +47,17 @@ class UpdateDot(Gtk.Box):
         self.state = up.UP_TO_DATE
         self.progress = 0.0
 
-        display = Gdk.Display.get_default()
-        if display is not None:
-            provider = Gtk.CssProvider()
-            provider.load_from_data(CSS)
-            Gtk.StyleContext.add_provider_for_display(
-                display, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        # If the stylesheet cannot be applied - a newer GTK drops the old call -
+        # the dot must still appear, just with the default text size.
+        try:
+            display = Gdk.Display.get_default()
+            if display is not None:
+                provider = Gtk.CssProvider()
+                provider.load_from_data(CSS)
+                Gtk.StyleContext.add_provider_for_display(
+                    display, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        except Exception as exc:                      # noqa: BLE001
+            log(f"update dot: could not set the text size ({exc})")
 
         self.label = Gtk.Label(valign=Gtk.Align.CENTER, use_markup=True)
         self.label.add_css_class("flow-version")
@@ -64,6 +69,8 @@ class UpdateDot(Gtk.Box):
         box = DOT_PX + PAD
         self.area = Gtk.DrawingArea(content_width=box, content_height=box,
                                     valign=Gtk.Align.CENTER)
+        self.area.set_size_request(box, box)
+        self.area.set_visible(True)
         self.area.set_draw_func(self._draw)
         self.append(self.area)
 

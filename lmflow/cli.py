@@ -234,6 +234,52 @@ def cmd_config(args):
     return 0
 
 
+def cmd_doctor(_args):
+    """Everything worth knowing when something is missing or broken."""
+    import platform
+    from . import __version__, discovery
+    print(f"Lightmorphic Flow {__version__}")
+    print(f"python           {sys.version.split()[0]}  ({sys.executable})")
+    print(f"system           {platform.platform()}")
+    print(f"session          {os.environ.get('XDG_SESSION_TYPE', '?')} / "
+          f"{os.environ.get('XDG_CURRENT_DESKTOP', '?')}")
+    print(f"machine          {discovery.machine_name()}  {discovery.machine_id()}")
+
+    try:
+        import gi
+        gi.require_version("Gtk", "4.0")
+        from gi.repository import Gtk
+        print(f"gtk4             {Gtk.get_major_version()}.{Gtk.get_minor_version()}"
+              f".{Gtk.get_micro_version()}")
+    except Exception as exc:
+        print(f"gtk4             MISSING ({exc})")
+    for namespace, version, label in (("Adw", "1", "libadwaita"),
+                                      ("AyatanaAppIndicator3", "0.1", "tray (ayatana)"),
+                                      ("AppIndicator3", "0.1", "tray (older)")):
+        try:
+            import gi
+            gi.require_version(namespace, version)
+            __import__("gi.repository", fromlist=[namespace])
+            print(f"{label:16} yes")
+        except Exception:
+            print(f"{label:16} no")
+
+    cfg = config.load()
+    print(f"role             {cfg['role']}")
+    print(f"computers known  {len(cfg.get('peers', {}))}")
+
+    for path, mode, what in (("/dev/uinput", os.O_WRONLY, "write"),
+                             ("/dev/input/event0", os.O_RDONLY, "read")):
+        try:
+            os.close(os.open(path, mode))
+            print(f"{path:16} {what} ok")
+        except OSError as exc:
+            print(f"{path:16} {what} FAILED - {exc.strerror}")
+    groups = subprocess.run(["id", "-nG"], capture_output=True, text=True).stdout.split()
+    print(f"input group      {'yes' if 'input' in groups else 'NO - log out and back in'}")
+    return 0
+
+
 def cmd_screen(_args):
     size = screen.detect()
     print(f"{size[0]}x{size[1]}" if size else "could not detect; set it in the settings")
@@ -276,6 +322,7 @@ def main(argv=None):
     subs.add_parser("setup", help="grant input access (asks for your password once)").set_defaults(func=cmd_setup)
     subs.add_parser("devices", help="list the mice and keyboards found").set_defaults(func=cmd_devices)
     subs.add_parser("screen", help="show the detected screen size").set_defaults(func=cmd_screen)
+    subs.add_parser("doctor", help="report everything about this machine").set_defaults(func=cmd_doctor)
     subs.add_parser("gui", help="open the settings window").set_defaults(func=cmd_gui)
     subs.add_parser("tray", help="show the tray icon").set_defaults(func=cmd_tray)
     subs.add_parser("install-services",

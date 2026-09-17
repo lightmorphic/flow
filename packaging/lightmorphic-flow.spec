@@ -1,5 +1,5 @@
 Name:           lightmorphic-flow
-Version:        0.3.2
+Version:        0.3.3
 Release:        1%{?dist}
 Summary:        Share one mouse, keyboard and clipboard between Linux computers
 
@@ -167,6 +167,9 @@ fi
 %{_datadir}/icons/hicolor/*/apps/uk.lightmorph.Flow*.png
 
 %changelog
+* Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.3.3-1
+- A doctor command, and the update dot can no longer vanish silently
+
 * Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.3.2-1
 - The update dot follows the revised house standard
 
