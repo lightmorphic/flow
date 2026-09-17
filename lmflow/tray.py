@@ -5,6 +5,7 @@ import fcntl
 import os
 import subprocess
 import sys
+import time
 
 import gi
 
@@ -15,7 +16,8 @@ from . import __version__, config, permissions, status   # noqa: E402
 
 ICON_HOME = "uk.lightmorph.Flow"
 ICON_AWAY = "uk.lightmorph.Flow-away"
-POLL_MS = 900
+POLL_MS = 2000
+SERVICE_CACHE_SECONDS = 5.0
 
 EDGE_SAY = {"right": "to the right", "left": "to the left",
             "top": "above", "bottom": "below"}
@@ -73,6 +75,9 @@ class Tray:
         self.menu = Gtk.Menu()
         self.indicator.set_menu(self.menu)
         self._signature = None
+        self._icon_now = None
+        self._service_checked = 0.0
+        self._service_was = False
         self._rebuild(status.read())
         GLib.timeout_add(POLL_MS, self._tick)
 
@@ -104,7 +109,10 @@ class Tray:
             headline = f"Pointer on {active['name']}"
         else:
             headline = "Pointer on this computer"
-        self.indicator.set_icon_full(ICON_AWAY if active else ICON_HOME, headline)
+        wanted = ICON_AWAY if active else ICON_HOME
+        if (wanted, headline) != self._icon_now:
+            self._icon_now = (wanted, headline)
+            self.indicator.set_icon_full(wanted, headline)
 
         head = Gtk.MenuItem(label=headline)
         head.set_sensitive(False)
@@ -173,17 +181,23 @@ class Tray:
         role = "server" if config.load().get("role") == "server" else "client"
         return f"lmflow-{role}.service"
 
-    def _service_active(self):
+    def _service_active(self, fresh=False):
+        now = time.monotonic()
+        if not fresh and now - self._service_checked < SERVICE_CACHE_SECONDS:
+            return self._service_was
+        self._service_checked = now
         result = _systemctl("is-active", self._unit())
-        return bool(result) and result.stdout.strip() == "active"
+        self._service_was = bool(result) and result.stdout.strip() == "active"
+        return self._service_was
 
     def _drop(self, _widget, peer_id):
         status.send(f"drop:{peer_id}")
 
     def _set_running(self, wanted):
-        if wanted == self._service_active():
+        if wanted == self._service_active(fresh=True):
             return
         _systemctl("start" if wanted else "stop", self._unit())
+        self._service_checked = 0.0
         self._signature = None
 
     def _open_settings(self, _widget):

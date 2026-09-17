@@ -24,7 +24,7 @@ from .touchpad import TouchpadTranslator
 RESCAN_SECONDS = 3.0
 HEARTBEAT_SECONDS = 2.0
 WATCHDOG_SECONDS = 4.0
-SILENCE_SECONDS = 6.0
+SILENCE_SECONDS = 8.0
 EDGES = ("right", "left", "top", "bottom")
 OPPOSITE = {"right": "left", "left": "right", "top": "bottom", "bottom": "top"}
 
@@ -243,6 +243,7 @@ class Server:
             nx, ny = int(self._frac_x() * rw), 2
         self.x, self.y = nx, ny
         was_local = self.active is None
+        peer.heard = time.monotonic()      # it has not gone quiet: we just arrived
         self.active = peer
         self._push = 0.0
         if was_local:
@@ -407,6 +408,14 @@ class Server:
         """While your mouse is on another machine, that machine must keep
         answering. If it stops, the mouse comes back here rather than being
         typed into nothing."""
+        if now - self._last_ping > HEARTBEAT_SECONDS:
+            self._last_ping = now
+            ping = protocol.pack(protocol.PING, b"")
+            with self._peers_lock:
+                everyone = list(self.peers.values())
+            for other in everyone:
+                other.send(ping)
+
         peer = self.active
         if peer is None:
             return
@@ -415,12 +424,6 @@ class Server:
             self.go_local()
             self._drop(peer)
             return
-        if now - self._last_ping > HEARTBEAT_SECONDS:
-            self._last_ping = now
-            if not peer.send(protocol.pack(protocol.PING, b"")):
-                self.log(f"{peer.name} stopped answering")
-                self._drop(peer)
-                return
         if now - peer.heard > SILENCE_SECONDS:
             self.log(f"{peer.name} has gone quiet - bringing the pointer back")
             self.go_local()

@@ -1,5 +1,5 @@
 Name:           lightmorphic-flow
-Version:        0.6.2
+Version:        0.6.3
 Release:        1%{?dist}
 Summary:        Share one mouse, keyboard and clipboard between Linux computers
 
@@ -204,6 +204,9 @@ fi
 %{_datadir}/icons/hicolor/*/apps/uk.lightmorph.Flow*.png
 
 %changelog
+* Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.6.3-1
+- The pointer no longer bounces straight back the moment it crosses
+
 * Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.6.2-1
 - Logs as it happens, and a report command
 

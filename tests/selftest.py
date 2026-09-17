@@ -357,9 +357,13 @@ check("five escapes bring it home", bool(brought_home))
 
 q = make_server()
 quiet = add_peer(q, "desktop", "right")
+quiet.heard = time.monotonic() - 60        # connected a while ago, said nothing
 q.x, q.y = 999, 400
 q.go_to(quiet)
 check("pointer is away", q.active is quiet)
+q._watch_the_peer(time.monotonic())
+check("crossing to a quiet machine does not bounce straight back",
+      q.active is quiet, "it came back immediately")
 quiet.heard = time.monotonic() - (server_mod.SILENCE_SECONDS + 1)
 q._watch_the_peer(time.monotonic())
 check("a computer that goes quiet gives the mouse back", q.active is None)
