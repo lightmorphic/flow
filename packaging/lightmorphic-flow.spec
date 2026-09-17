@@ -1,5 +1,5 @@
 Name:           lightmorphic-flow
-Version:        0.6.4
+Version:        0.6.5
 Release:        1%{?dist}
 Summary:        Share one mouse, keyboard and clipboard between Linux computers
 
@@ -204,6 +204,9 @@ fi
 %{_datadir}/icons/hicolor/*/apps/uk.lightmorph.Flow*.png
 
 %changelog
+* Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.6.5-1
+- No more stray flickering icon in the dock
+
 * Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.6.4-1
 - Says exactly what it does when the pointer crosses and comes back
 

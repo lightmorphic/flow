@@ -538,6 +538,8 @@ class Window(Adw.ApplicationWindow):
 class App(Adw.Application):
     def __init__(self):
         super().__init__(application_id="uk.lightmorph.Flow")
+        GLib.set_prgname("uk.lightmorph.Flow")
+        GLib.set_application_name("Lightmorphic Flow")
 
     def do_activate(self):
         Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_DARK)

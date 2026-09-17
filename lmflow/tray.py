@@ -12,6 +12,13 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk               # noqa: E402
 
+# Tell the desktop which application this is. Without it the menu's own
+# window shows up in the dock as an unnamed extra with a placeholder icon,
+# appearing and disappearing as the menu comes and goes.
+APP_ID = "uk.lightmorph.Flow"
+GLib.set_prgname(APP_ID)
+GLib.set_application_name("Lightmorphic Flow")
+
 from . import __version__, config, permissions, status   # noqa: E402
 
 ICON_HOME = "uk.lightmorph.Flow"
@@ -82,6 +89,10 @@ class Tray:
             "lightmorphic-flow", ICON_HOME, module.IndicatorCategory.HARDWARE)
         self.indicator.set_status(module.IndicatorStatus.ACTIVE)
         self.indicator.set_title("Lightmorphic Flow")
+        try:
+            self.indicator.set_icon_theme_path("/usr/share/icons/hicolor")
+        except (AttributeError, TypeError):
+            pass
 
         self.menu = Gtk.Menu()
         self.indicator.set_menu(self.menu)
