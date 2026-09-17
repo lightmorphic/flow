@@ -20,6 +20,7 @@ COLOURS = {
 }
 RING_TRACK = (1, 1, 1, 0.22)
 TEXT_SIZE = 12
+PAD = 4          # breathing room around the dot, not part of its diameter
 
 
 class UpdateDot(Gtk.Box):
@@ -27,6 +28,7 @@ class UpdateDot(Gtk.Box):
 
     def __init__(self, log=print):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self._diameter = TEXT_SIZE * 2
         self.set_valign(Gtk.Align.CENTER)
         self.log = log
 
@@ -34,15 +36,18 @@ class UpdateDot(Gtk.Box):
         self.label.set_markup(
             f'<a href="{up.WEBSITE}"><span size="{TEXT_SIZE * 1000}" '
             f'underline="none">{__version__}</span></a>')
+        # The name in the header bar links to the same place; see gui.py.
         self.label.add_css_class("dim")
         self.label.set_tooltip_text(up.WEBSITE)
         self.append(self.label)
 
-        size = TEXT_SIZE * 2 + 6                     # dot is twice the text height
-        self.area = Gtk.DrawingArea(content_width=size, content_height=size,
-                                    valign=Gtk.Align.CENTER)
+        self.area = Gtk.DrawingArea(valign=Gtk.Align.CENTER)
         self.area.set_draw_func(self._draw)
         self.append(self.area)
+        # The spec asks for a dot twice the height of the text next to it, so
+        # measure the label rather than guessing from the font size.
+        self.label.connect("realize", self._size_the_dot)
+        self._size_the_dot(self.label)
 
         click = Gtk.GestureClick()
         click.connect("released", self._clicked)
@@ -56,6 +61,14 @@ class UpdateDot(Gtk.Box):
         self._apply(up.UP_TO_DATE, 0.0, None)
         GLib.timeout_add_seconds(2, self._first_check)
         GLib.timeout_add_seconds(up.CHECK_SECONDS, self._periodic)
+
+    def _size_the_dot(self, label):
+        _minimum, natural, _mb, _nb = label.measure(Gtk.Orientation.VERTICAL, -1)
+        text_height = natural or TEXT_SIZE * 4 // 3
+        self._diameter = text_height * 2
+        box = self._diameter + PAD          # room for the antialiased edge
+        self.area.set_content_width(box)
+        self.area.set_content_height(box)
 
     # ---------------------------------------------------------------- timing
     def _first_check(self):
@@ -141,17 +154,19 @@ class UpdateDot(Gtk.Box):
     # ------------------------------------------------------------- the paint
     def _draw(self, _area, cr, width, height):
         cx, cy = width / 2, height / 2
-        radius = min(width, height) / 2 - 2
+        radius = self._diameter / 2
 
         if self.state == up.DOWNLOADING:
-            cr.set_line_width(2.5)
+            line = max(2.0, radius * 0.18)
+            edge = radius - line / 2
+            cr.set_line_width(line)
             cr.set_source_rgba(*RING_TRACK)
-            cr.arc(cx, cy, radius - 1, 0, 2 * math.pi)
+            cr.arc(cx, cy, edge, 0, 2 * math.pi)
             cr.stroke()
             if self.progress > 0:
                 cr.set_source_rgb(1, 1, 1)
                 start = -math.pi / 2
-                cr.arc(cx, cy, radius - 1, start,
+                cr.arc(cx, cy, edge, start,
                        start + 2 * math.pi * min(1.0, self.progress))
                 cr.stroke()
             return

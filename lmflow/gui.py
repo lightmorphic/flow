@@ -11,12 +11,17 @@ from gi.repository import Adw, Gdk, GLib, Gtk          # noqa: E402
 
 from . import config, discovery, pairing, screen        # noqa: E402
 from .updatedot import UpdateDot                        # noqa: E402
+from .updater import WEBSITE                            # noqa: E402
 
 EDGES = ["right", "left", "top", "bottom"]
 EDGE_LABELS = ["To my right", "To my left", "Above me", "Below me"]
 PAIR_SECONDS = 120
 CSS = b"""
 toast > widget { background: #1f7a3d; color: #ffffff; }
+/* The lockup reads as the app's name, not as a link, until you hover it. */
+.brand-link { font-size: 1.05em; }
+.brand-link a { color: inherit; text-decoration: none; }
+.brand-link a:hover { color: #fbc711; }
 .dim { opacity: 0.65; }
 """
 
@@ -77,8 +82,12 @@ class Window(Adw.ApplicationWindow):
         icon = Gtk.Image.new_from_icon_name(name)
         icon.set_pixel_size(22)
         row.append(icon)
-        title = Gtk.Label(label="Lightmorphic Flow", valign=Gtk.Align.CENTER)
-        title.add_css_class("title-4")
+        title = Gtk.Label(valign=Gtk.Align.CENTER, use_markup=True)
+        title.set_markup(
+            f'<a href="{WEBSITE}" underline="none">'
+            '<span weight="bold">Lightmorphic Flow</span></a>')
+        title.set_tooltip_text(WEBSITE)
+        title.add_css_class("brand-link")
         row.append(title)
         return row
 

@@ -27,11 +27,11 @@ READY = "blue"
 OFFLINE = "red"
 
 TOOLTIPS = {
-    UP_TO_DATE: "Up to date - click to check again",
-    AVAILABLE: "Update available - click to download",
-    DOWNLOADING: "Downloading",
-    READY: "Update ready - click to restart",
-    OFFLINE: "Cannot reach GitHub to check for updates",
+    UP_TO_DATE: "up to date",
+    AVAILABLE: "update available - click to download",
+    DOWNLOADING: "downloading",
+    READY: "click to restart",
+    OFFLINE: "cannot reach GitHub to check for updates",
 }
 
 

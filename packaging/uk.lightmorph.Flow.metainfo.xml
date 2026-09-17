@@ -54,6 +54,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.2.2" date="2026-09-17">
+      <description>
+        <p>The update dot follows the house standard exactly.</p>
+      </description>
+    </release>
     <release version="0.2.1" date="2026-09-17">
       <description>
         <p>The application icon and the listing in your software centre.</p>

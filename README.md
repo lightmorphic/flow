@@ -33,7 +33,7 @@ Pure Python 3, no libraries to install, about 1,700 lines.
 ## Install (on every machine)
 
 ```
-sudo apt install ./lightmorphic-flow_0.2.1_all.deb
+sudo apt install ./lightmorphic-flow_0.2.2_all.deb
 ```
 
 That puts everything in place, including permission to read the mouse and
@@ -43,7 +43,7 @@ that is the whole install.
 On Fedora, openSUSE and anything else that uses `.rpm`:
 
 ```
-sudo dnf install ./lightmorphic-flow-0.2.1-1.noarch.rpm
+sudo dnf install ./lightmorphic-flow-0.2.2-1.noarch.rpm
 ```
 
 To build either package yourself:
