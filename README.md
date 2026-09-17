@@ -33,10 +33,17 @@ That puts everything in place, including permission to read the mouse and
 keyboard, and adds you to the `input` group. **Log out and back in once**, and
 that is the whole install.
 
-To build the package yourself:
+On Fedora, openSUSE and anything else that uses `.rpm`:
+
+```
+sudo dnf install ./lightmorphic-flow-0.2.0-1.noarch.rpm
+```
+
+To build either package yourself:
 
 ```
 ./packaging/build-deb.sh
+./packaging/build-rpm.sh     # needs the 'rpm' package installed
 ```
 
 On a Linux that does not use `.deb`, install into your home folder instead with

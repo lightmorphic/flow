@@ -8,7 +8,11 @@ URL:            https://flow.lightmorphic.com
 Source0:        %{name}-%{version}.tar.gz
 BuildArch:      noarch
 
-BuildRequires:  systemd-rpm-macros
+# Distro-neutral locations, so this builds the same anywhere.
+%global flowlibdir  /usr/lib/lightmorphic-flow
+%global userunitdir /usr/lib/systemd/user
+%global udevruledir /usr/lib/udev/rules.d
+
 Requires:       python3 >= 3.9
 Requires:       python3-gobject
 Requires:       gtk4
@@ -36,21 +40,22 @@ your own machine.
 # Nothing to build: plain Python.
 
 %install
-install -d %{buildroot}%{python3_sitelib}/lmflow
-install -m 0644 lmflow/*.py %{buildroot}%{python3_sitelib}/lmflow/
+install -d %{buildroot}%{flowlibdir}/lmflow
+install -m 0644 lmflow/*.py %{buildroot}%{flowlibdir}/lmflow/
 
 install -d %{buildroot}%{_bindir}
 cat > %{buildroot}%{_bindir}/lmflow <<'LAUNCH'
 #!/usr/bin/env python3
 import sys
+sys.path.insert(0, "/usr/lib/lightmorphic-flow")
 from lmflow.cli import main
 sys.exit(main())
 LAUNCH
 chmod 0755 %{buildroot}%{_bindir}/lmflow
 
-install -d %{buildroot}%{_userunitdir}
+install -d %{buildroot}%{userunitdir}
 for role in server client; do
-cat > %{buildroot}%{_userunitdir}/lmflow-$role.service <<UNIT
+cat > %{buildroot}%{userunitdir}/lmflow-$role.service <<UNIT
 [Unit]
 Description=Lightmorphic Flow ($role)
 After=graphical-session.target
@@ -66,8 +71,8 @@ WantedBy=graphical-session.target
 UNIT
 done
 
-install -d %{buildroot}%{_udevrulesdir}
-cat > %{buildroot}%{_udevrulesdir}/60-lmflow.rules <<'RULE'
+install -d %{buildroot}%{udevruledir}
+cat > %{buildroot}%{udevruledir}/60-lmflow.rules <<'RULE'
 # Installed by Lightmorphic Flow: let members of the 'input' group send
 # keystrokes and pointer movement to this machine.
 KERNEL=="uinput", MODE="0660", GROUP="input", OPTIONS+="static_node=uinput"
@@ -112,11 +117,7 @@ if [ -d /run/udev ]; then
     udevadm control --reload-rules >/dev/null 2>&1 || :
     udevadm trigger --subsystem-match=input --subsystem-match=misc >/dev/null 2>&1 || :
 fi
-%systemd_user_post lmflow-server.service
-
-%preun
-%systemd_user_preun lmflow-server.service
-%systemd_user_preun lmflow-client.service
+systemctl daemon-reload >/dev/null 2>&1 || :
 
 %postun
 if [ -d /run/udev ]; then
@@ -127,10 +128,10 @@ fi
 %license LICENSE
 %doc README.md
 %{_bindir}/lmflow
-%{python3_sitelib}/lmflow/
-%{_userunitdir}/lmflow-server.service
-%{_userunitdir}/lmflow-client.service
-%{_udevrulesdir}/60-lmflow.rules
+%{flowlibdir}/
+%{userunitdir}/lmflow-server.service
+%{userunitdir}/lmflow-client.service
+%{udevruledir}/60-lmflow.rules
 %{_prefix}/lib/modules-load.d/lmflow.conf
 %{_datadir}/applications/lmflow.desktop
 %{_datadir}/icons/hicolor/scalable/apps/lmflow.svg

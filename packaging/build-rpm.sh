@@ -26,7 +26,7 @@ tar -czf "$top/SOURCES/$name-$version.tar.gz" -C "$top" "$name-$version"
 
 sed "s/^Version:.*/Version:        $version/" "$here/$name.spec" > "$top/SPECS/$name.spec"
 
-rpmbuild --define "_topdir $top" -bb "$top/SPECS/$name.spec" >"$top/build.log" 2>&1 || {
+rpmbuild --define "_topdir $top" --define "_dbpath $top/rpmdb" -bb "$top/SPECS/$name.spec" >"$top/build.log" 2>&1 || {
   tail -30 "$top/build.log" >&2
   exit 1
 }
