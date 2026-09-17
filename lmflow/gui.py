@@ -11,7 +11,8 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, GLib, Gtk          # noqa: E402
 
-from . import config, discovery, pairing, permissions, screen, status  # noqa: E402
+from . import (config, discovery, firewall, pairing, permissions,  # noqa: E402
+               screen, status)
 from .updatedot import UpdateDot                        # noqa: E402
 
 EDGES = ["right", "left", "top", "bottom"]
@@ -58,8 +59,9 @@ class Window(Adw.ApplicationWindow):
         self.set_content(box)
 
         self.warning = Adw.PreferencesGroup()
-        self._warning_row = None
+        self._warning_rows = []
         self._permission_ok = True
+        self._firewall_opened = False
         self.page.add(self.warning)
         self.page.add(self._group_role())
         self.machines = Adw.PreferencesGroup()
@@ -122,26 +124,66 @@ class Window(Adw.ApplicationWindow):
         return False
 
     def _rebuild_warning(self):
-        """And it stays on screen until it is actually fixed."""
-        if self._warning_row is not None:
-            self.warning.remove(self._warning_row)
-            self._warning_row = None
-        if getattr(self, "_permission_ok", True):
-            self.warning.set_title("")
-            return
-        headline, body = permissions.message()
-        self.warning.set_title("Not working yet")
-        row = Adw.ActionRow(title=headline,
-                            subtitle="Until you do, it cannot read your mouse "
-                                     "or keyboard. Click for the details.")
-        row.set_subtitle_lines(3)
-        button = Gtk.Button(label="Details", valign=Gtk.Align.CENTER)
-        button.add_css_class("suggested-action")
-        button.connect("clicked", lambda _b: self._check_permission())
-        row.add_suffix(button)
-        row.set_activatable_widget(button)
-        self.warning.add(row)
-        self._warning_row = row
+        """Whatever is standing in the way, said here until it is fixed."""
+        for row in self._warning_rows:
+            self.warning.remove(row)
+        self._warning_rows = []
+
+        if not getattr(self, "_permission_ok", True):
+            headline, _body = permissions.message()
+            row = Adw.ActionRow(title=headline,
+                                subtitle="Until you do, it cannot read your mouse "
+                                         "or keyboard. Click for the details.")
+            row.set_subtitle_lines(3)
+            button = Gtk.Button(label="Details", valign=Gtk.Align.CENTER)
+            button.add_css_class("suggested-action")
+            button.connect("clicked", lambda _b: self._check_permission())
+            row.add_suffix(button)
+            row.set_activatable_widget(button)
+            self.warning.add(row)
+            self._warning_rows.append(row)
+
+        kind = self._firewall_in_the_way()
+        if kind:
+            row = Adw.ActionRow(
+                title="A firewall is in the way",
+                subtitle="Your computers cannot reach each other while "
+                         f"{kind} is blocking them. This opens the two ports "
+                         "Lightmorphic Flow uses, and nothing else.")
+            row.set_subtitle_lines(4)
+            button = Gtk.Button(label="Allow it through", valign=Gtk.Align.CENTER)
+            button.add_css_class("suggested-action")
+            button.connect("clicked", self._open_firewall, kind)
+            row.add_suffix(button)
+            row.set_activatable_widget(button)
+            self.warning.add(row)
+            self._warning_rows.append(row)
+
+        self.warning.set_title("Not working yet" if self._warning_rows else "")
+
+    def _firewall_in_the_way(self):
+        """Only worth saying while nothing has actually been found."""
+        if self._firewall_opened:
+            return None
+        kind = firewall.running()
+        if kind is None:
+            return None
+        if self.cfg["role"] == "server":
+            connected = status.read().get("peers")
+            return None if connected else kind
+        return None if self._found() else kind
+
+    def _open_firewall(self, button, kind):
+        button.set_sensitive(False)
+        button.set_label("Asking…")
+        if firewall.open_it(kind):
+            self._firewall_opened = True
+        else:
+            print(f"could not open the firewall; run: {firewall.spoken(kind)}",
+                  file=sys.stderr)
+        button.set_sensitive(True)
+        button.set_label("Allow it through")
+        self._rebuild_warning()
 
     def _own_listener(self):
         """Listen here only while the service is not."""
@@ -468,6 +510,7 @@ class Window(Adw.ApplicationWindow):
                 changed = True
         if changed:
             self._rebuild_machines()
+            self._rebuild_warning()
         self._show_allow()
         self._refresh_power()
         was_ok = getattr(self, "_permission_ok", True)

@@ -288,6 +288,14 @@ def cmd_doctor(_args):
         print("cairo drawing    NO - the update dot cannot be drawn. Install "
               "python3-gi-cairo (Debian) or python3-cairo (Fedora).")
 
+    from . import firewall
+    kind = firewall.running()
+    if kind:
+        print(f"firewall         {kind} is running. If the computers cannot see "
+              f"each other:\n                 {firewall.spoken(kind)}")
+    else:
+        print("firewall         none running")
+
     cfg = config.load()
     print(f"role             {cfg['role']}")
     print(f"computers known  {len(cfg.get('peers', {}))}")

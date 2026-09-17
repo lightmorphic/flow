@@ -79,6 +79,28 @@ StartupNotify=true
 DESK
 chmod 0644 "$stage/usr/share/applications/uk.lightmorph.Flow.desktop"
 
+# Firewall profiles. These describe the ports; they do not open anything.
+install -d "$stage/etc/ufw/applications.d"
+cat > "$stage/etc/ufw/applications.d/lightmorphic-flow" <<'UFW'
+[Lightmorphic-Flow]
+title=Lightmorphic Flow
+description=Share one mouse, keyboard and clipboard between your computers
+ports=24810/tcp|24811/udp
+UFW
+chmod 0644 "$stage/etc/ufw/applications.d/lightmorphic-flow"
+
+install -d "$stage/usr/lib/firewalld/services"
+cat > "$stage/usr/lib/firewalld/services/lightmorphic-flow.xml" <<'FWD'
+<?xml version="1.0" encoding="utf-8"?>
+<service>
+  <short>Lightmorphic Flow</short>
+  <description>Share one mouse, keyboard and clipboard between your computers.</description>
+  <port protocol="tcp" port="24810"/>
+  <port protocol="udp" port="24811"/>
+</service>
+FWD
+chmod 0644 "$stage/usr/lib/firewalld/services/lightmorphic-flow.xml"
+
 install -d "$stage/usr/share/metainfo"
 install -m 0644 "$here/uk.lightmorph.Flow.metainfo.xml" "$stage/usr/share/metainfo/"
 
@@ -168,6 +190,8 @@ if [ "$1" = "configure" ]; then
         udevadm control --reload-rules >/dev/null 2>&1 || true
         udevadm trigger --subsystem-match=input --subsystem-match=misc >/dev/null 2>&1 || true
     fi
+    if [ -x /usr/sbin/ufw ]; then ufw app update Lightmorphic-Flow >/dev/null 2>&1 || true; fi
+    if [ -x /usr/bin/firewall-cmd ]; then firewall-cmd --reload >/dev/null 2>&1 || true; fi
     systemctl daemon-reload >/dev/null 2>&1 || true
     systemctl --global enable lmflow-tray.service >/dev/null 2>&1 || true
     echo ""

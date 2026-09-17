@@ -1,5 +1,5 @@
 Name:           lightmorphic-flow
-Version:        0.5.2
+Version:        0.5.3
 Release:        1%{?dist}
 Summary:        Share one mouse, keyboard and clipboard between Linux computers
 
@@ -108,6 +108,25 @@ Keywords=mouse;keyboard;clipboard;kvm;share;
 StartupNotify=true
 DESK
 
+install -d %{buildroot}%{_sysconfdir}/ufw/applications.d
+cat > %{buildroot}%{_sysconfdir}/ufw/applications.d/lightmorphic-flow <<'UFW'
+[Lightmorphic-Flow]
+title=Lightmorphic Flow
+description=Share one mouse, keyboard and clipboard between your computers
+ports=24810/tcp|24811/udp
+UFW
+
+install -d %{buildroot}%{_prefix}/lib/firewalld/services
+cat > %{buildroot}%{_prefix}/lib/firewalld/services/lightmorphic-flow.xml <<'FWD'
+<?xml version="1.0" encoding="utf-8"?>
+<service>
+  <short>Lightmorphic Flow</short>
+  <description>Share one mouse, keyboard and clipboard between your computers.</description>
+  <port protocol="tcp" port="24810"/>
+  <port protocol="udp" port="24811"/>
+</service>
+FWD
+
 install -d %{buildroot}%{_datadir}/metainfo
 install -m 0644 packaging/uk.lightmorph.Flow.metainfo.xml %{buildroot}%{_datadir}/metainfo/
 
@@ -174,6 +193,8 @@ fi
 %{userunitdir}/lmflow-client.service
 %{userunitdir}/lmflow-tray.service
 %config(noreplace) %{_sysconfdir}/xdg/autostart/uk.lightmorph.Flow.tray.desktop
+%config(noreplace) %{_sysconfdir}/ufw/applications.d/lightmorphic-flow
+%{_prefix}/lib/firewalld/services/lightmorphic-flow.xml
 %{udevruledir}/60-lmflow.rules
 %{_prefix}/lib/modules-load.d/lmflow.conf
 %{_datadir}/applications/uk.lightmorph.Flow.desktop
@@ -182,6 +203,9 @@ fi
 %{_datadir}/icons/hicolor/*/apps/uk.lightmorph.Flow*.png
 
 %changelog
+* Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.5.3-1
+- Says when a firewall is blocking the two computers, and offers to open it
+
 * Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.5.2-1
 - Allow counts down in the row; no popups
 
