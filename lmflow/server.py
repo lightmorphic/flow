@@ -177,13 +177,21 @@ class Server:
             self.log(f"device gone: {reader.info.name}")
 
     def _grab_all(self, grab):
+        done, failed = [], []
         for reader in self._readers.values():
             try:
                 reader.grab() if grab else reader.ungrab()
+                done.append(reader.info.name)
             except OSError as exc:
-                self.log(f"grab failed on {reader.info.name}: {exc}")
+                failed.append(f"{reader.info.name} ({exc})")
         for pad in self._pads.values():
             pad.reset()
+        word = "took" if grab else "let go of"
+        self.log(f"{word} {len(done)} device(s)"
+                 + (f"; FAILED on {', '.join(failed)}" if failed else ""))
+        still = [r.info.name for r in self._readers.values() if r.grabbed]
+        if not grab and still:
+            self.log(f"WARNING still holding: {', '.join(still)}")
 
     # ------------------------------------------------------------ switching
     def publish(self):
@@ -256,6 +264,7 @@ class Server:
         if self.active is None:
             return
         peer = self.active
+        self.log(f"coming back from {peer.name}")
         edge = peer.edge
         if edge == "right":
             self.x, self.y = self.width - 3, int(self._frac_y() * self.height)
@@ -328,6 +337,8 @@ class Server:
         self._push = 0.0
         if self.cfg["edge_only_with_hotkey"]:
             return
+        where = "home" if self.active is not None else f"the {edge}"
+        self.log(f"pushed off the {edge} edge - crossing to {where}")
         self.go_local() if self.active is not None else self.go_to(self.peer_on(edge))
 
     # ------------------------------------------------------------ the loop

@@ -37,18 +37,29 @@ def _indicator_module():
 
 def _only_one():
     """Hold a lock for as long as we run, so two ways of starting the tray
-    cannot leave two icons in the bar. Returns the open file, or None."""
+    cannot leave two icons in the bar. Returns the open file, or None.
+
+    Opened without truncating, and retried once: two copies started in the
+    same instant should not both give up.
+    """
     path = os.path.join(config.CONFIG_DIR, "tray.lock")
     os.makedirs(config.CONFIG_DIR, mode=0o700, exist_ok=True)
-    handle = open(path, "w", encoding="ascii")
-    try:
-        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
-        handle.close()
-        return None
-    handle.write(str(os.getpid()))
-    handle.flush()
-    return handle
+    handle = open(path, "a+", encoding="ascii")
+    for attempt in range(2):
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            if attempt == 0:
+                time.sleep(0.6)
+                continue
+            handle.close()
+            return None
+        handle.seek(0)
+        handle.truncate()
+        handle.write(str(os.getpid()))
+        handle.flush()
+        return handle
+    return None
 
 
 def _systemctl(*args):
