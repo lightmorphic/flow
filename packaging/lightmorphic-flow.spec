@@ -1,5 +1,5 @@
 Name:           lightmorphic-flow
-Version:        0.4.0
+Version:        0.4.1
 Release:        1%{?dist}
 Summary:        Share one mouse, keyboard and clipboard between Linux computers
 
@@ -177,6 +177,9 @@ fi
 %{_datadir}/icons/hicolor/*/apps/uk.lightmorph.Flow*.png
 
 %changelog
+* Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.4.1-1
+- Screenshots and a proper listing in every software centre
+
 * Thu Sep 17 2026 Lightmorphic <github@lightmorphic.com> - 0.4.0-1
 - Says plainly, in a dialog you must acknowledge, that you have to log out
 
