@@ -1,5 +1,5 @@
 Name:           lightmorphic-flow
-Version:        0.7.10
+Version:        0.7.11
 Release:        1%{?dist}
 Summary:        Share one mouse, keyboard and clipboard between Linux computers
 
@@ -192,6 +192,9 @@ fi
 %{_datadir}/icons/hicolor/*/apps/uk.lightmorph.Flow*.png
 
 %changelog
+* Fri Sep 18 2026 Lightmorphic <github@lightmorphic.com> - 0.7.11-1
+- GNOME's top-left hot corner opens the Overview on the other computer
+
 * Fri Sep 18 2026 Lightmorphic <github@lightmorphic.com> - 0.7.10-1
 - Clicking the update dot no longer maximises the window
 

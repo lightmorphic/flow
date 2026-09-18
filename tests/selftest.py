@@ -404,6 +404,35 @@ for _ in range(40):
     r._move(5, 0)
 check("the far edge does not bring you home", r.active is far)
 
+print("-- a hot corner can build up pressure --")
+from lmflow.linux_input import EV_ABS as _ABS, EV_REL as _REL
+k = make_server()
+corner_peer = add_peer(k, "t14s", "left", (1536, 864))
+k.x, k.y = 5, 400
+for _ in range(40):
+    k._move(-5, 0)
+    if k.active is corner_peer:
+        break
+corner_peer.conn.sent.clear()
+k.x, k.y = 0, 0
+k._moved = True
+k._flush()                               # the pointer is placed in the corner once
+sent = []
+real_send = corner_peer.send
+corner_peer.send = lambda blob: sent.append(blob) or True
+for _ in range(20):                      # then pushed up and left, again and again
+    k._move(-6, 0)
+    k._move(0, -6)
+    k._flush()
+corner_peer.send = real_send
+events = [e for blob in sent for e in protocol.unpack_events(blob[5:])]
+placements = [e for e in events if e[0] == _ABS]
+pressure = [e for e in events if e[0] == _REL]
+check("pinned in a corner, the pointer is not re-placed over and over",
+      len(placements) == 0, f"{len(placements)} re-placements")
+check("but the pressure keeps coming, so the corner can fire",
+      sum(abs(v) for _t, _c, v in pressure) >= 100, f"{sum(abs(v) for _t,_c,v in pressure)} pixels of pressure")
+
 print("-- the computer you are sitting at must never freeze --")
 class Deaf:
     """A machine that stops reading: a real send would block for ever."""
@@ -417,7 +446,8 @@ f.peers["deaf"] = deaf
 f.x, f.y = 999, 400
 f.go_to(deaf)
 start = time.monotonic()
-for _ in range(server_mod.Peer.OUTBOX + 50):
+for i in range(server_mod.Peer.OUTBOX + 50):
+    f.x = 100 + (i % 200)                # a pointer that keeps moving
     f._moved = True
     f._flush()
 spent = time.monotonic() - start

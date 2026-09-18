@@ -124,6 +124,7 @@ class Server:
         self._moved = False
         self._dx = self._dy = 0.0
         self._press_dx = self._press_dy = 0.0
+        self._last_place = None
         self._push = 0.0
         self._push_edge = None
         self._push_started = 0.0
@@ -302,6 +303,7 @@ class Server:
         self.x, self.y = nx, ny
         was_local = self.active is None
         peer.heard = time.monotonic()      # it has not gone quiet: we just arrived
+        self._last_place = None
         self.active = peer
         self._push = 0.0
         if was_local:
@@ -467,13 +469,16 @@ class Server:
         elif self._moved:
             # Where the pointer is, on the 0..32767 scale, so the other
             # machine's own mouse acceleration cannot pull the two apart.
+            # Only sent when it has actually changed: pinned in a corner, a
+            # re-sent position counts as a fresh placement and wipes out the
+            # pressure GNOME is adding up to open the Overview.
             width, height = peer.size
-            events.append((EV_ABS, ABS_X,
-                           max(0, min(ABS_RANGE,
-                                      int(self.x * ABS_RANGE / max(1, width - 1))))))
-            events.append((EV_ABS, ABS_Y,
-                           max(0, min(ABS_RANGE,
-                                      int(self.y * ABS_RANGE / max(1, height - 1))))))
+            place = (max(0, min(ABS_RANGE, int(self.x * ABS_RANGE / max(1, width - 1)))),
+                     max(0, min(ABS_RANGE, int(self.y * ABS_RANGE / max(1, height - 1)))))
+            if place != self._last_place:
+                events.append((EV_ABS, ABS_X, place[0]))
+                events.append((EV_ABS, ABS_Y, place[1]))
+                self._last_place = place
             self._moved = False
         if peer.positions and (self._press_dx or self._press_dy):
             push_x, push_y = int(round(self._press_dx)), int(round(self._press_dy))
