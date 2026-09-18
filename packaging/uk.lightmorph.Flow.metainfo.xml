@@ -80,6 +80,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.7.6" date="2026-09-18">
+      <description>
+        <p>The shared clipboard works on GNOME with Wayland, and crossing over is less fussy.</p>
+      </description>
+    </release>
     <release version="0.7.5" date="2026-09-18">
       <description>
         <p>Crossing over works the second time and every time after, not only the first.</p>

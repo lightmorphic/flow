@@ -266,6 +266,8 @@ def cmd_doctor(_args):
     print(f"system           {platform.platform()}")
     print(f"session          {os.environ.get('XDG_SESSION_TYPE', '?')} / "
           f"{os.environ.get('XDG_CURRENT_DESKTOP', '?')}")
+    print(f"displays         wayland={os.environ.get('WAYLAND_DISPLAY') or '-'} "
+          f"x11={os.environ.get('DISPLAY') or '-'}")
     print(f"machine          {discovery.machine_name()}  {discovery.machine_id()}")
 
     try:

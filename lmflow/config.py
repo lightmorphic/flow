@@ -31,8 +31,8 @@ DEFAULTS = {
     # Crossing behaviour -----------------------------------------------------
     "peer_edge": "right",        # the edge offered to a newly added machine
     "corner_guard_px": 140,      # no crossing this close to a corner (hot corners stay yours)
-    "push_px": 90,               # how far you must keep pushing past the edge to cross
-    "push_ms": 450,              # ...within this long, or the push resets
+    "push_px": 70,               # how far you must keep pushing past the edge to cross
+    "push_ms": 700,              # ...within this long, or the push resets
     "return_push_px": 20,        # coming home is easy: a nudge, not a shove
     "return_push_ms": 2000,      # ...and you may take your time over it
     "edge_only_with_hotkey": False,
@@ -65,8 +65,17 @@ def load() -> dict:
         pass
     except (OSError, ValueError):
         pass
+    changed = False
+    # Carry people still on an old default over to the new one; anyone who
+    # chose their own value keeps it.
+    for key, old, new in (("push_px", 90, 70), ("push_ms", 450, 700)):
+        if cfg.get(key) == old:
+            cfg[key] = new
+            changed = True
     if not cfg.get("token"):
         cfg["token"] = secrets.token_urlsafe(24)
+        changed = True
+    if changed:
         save(cfg)
     return cfg
 

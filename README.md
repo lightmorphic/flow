@@ -20,7 +20,7 @@ Pure Python 3, no libraries to install, about 1,700 lines.
 * **Your screen edges stay yours.** Flow never claims an edge. A light touch on
   an edge or a corner does nothing at all, so GNOME hot corners and hot edges
   behave exactly as they always did. Only a deliberate continued push - about
-  90 pixels' worth, within half a second - moves the pointer across. Corners
+  70 pixels' worth, within a little over half a second - moves the pointer across. Corners
   are ignored completely.
 * **It finds the other computers itself.** They announce themselves on your
   network. No addresses to type.
@@ -33,7 +33,7 @@ Pure Python 3, no libraries to install, about 1,700 lines.
 ## Install (on every machine)
 
 ```
-sudo apt install ./lightmorphic-flow_0.7.5_all.deb
+sudo apt install ./lightmorphic-flow_0.7.6_all.deb
 ```
 
 That puts everything in place, including permission to read the mouse and
@@ -49,7 +49,7 @@ yourself to the `input` group instead.
 On Fedora, openSUSE and anything else that uses `.rpm`:
 
 ```
-sudo dnf install ./lightmorphic-flow-0.7.5-1.noarch.rpm
+sudo dnf install ./lightmorphic-flow-0.7.6-1.noarch.rpm
 ```
 
 To build either package yourself:

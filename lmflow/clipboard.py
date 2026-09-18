@@ -40,6 +40,7 @@ class Clipboard:
         self._stop = threading.Event()
         self._thread = None
         self._helper = None
+        self.route = "not started"
         self._read_cmd, self._write_cmd = _fallback_tools()
 
     @property
@@ -67,13 +68,32 @@ class Clipboard:
                 pass
 
     # -------------------------------------------------------------- watching
+    def _environment(self):
+        """On Wayland, a program without a focused window may not see the
+        clipboard at all - that is the rule, not a fault. GNOME keeps the
+        clipboard of its X11 compatibility layer in step with the real one,
+        and that one has no such rule, so the helper goes through there."""
+        env = dict(os.environ)
+        on_wayland = (os.environ.get("XDG_SESSION_TYPE") == "wayland"
+                      or bool(os.environ.get("WAYLAND_DISPLAY")))
+        if on_wayland and os.environ.get("DISPLAY"):
+            env["GDK_BACKEND"] = "x11"
+            self.route = "through X11 compatibility"
+        elif on_wayland:
+            self.route = "on Wayland without X11 compatibility - may not work"
+        else:
+            self.route = "on X11"
+        return env
+
     def _watch(self):
         failures = 0
+        env = self._environment()
+        self._log(f"clipboard: watching {self.route}")
         while not self._stop.is_set():
             try:
                 self._helper = subprocess.Popen(
                     self._helper_command(), stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=env)
             except OSError as exc:
                 self._log(f"clipboard: cannot start the watcher ({exc})")
                 self._fall_back()
