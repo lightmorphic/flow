@@ -60,6 +60,7 @@ def make_server(**over):
         srv = server_mod.Server(cfg, log=lambda *_: None)
     finally:
         screen.detect = real
+    srv._scan_devices = lambda: None
     return srv
 
 
@@ -133,8 +134,8 @@ for _ in range(20):
     if s.active is a:
         break
 check("right edge reaches the machine on the right", s.active is a)
-check("lands just inside its screen, at the same height",
-      s.x == 2 and 0 <= s.y <= 1080, f"{s.x},{s.y:.0f} on a {a.size} screen")
+check("lands well inside its screen, not against the edge",
+      40 <= s.x <= 200 and 0 <= s.y <= 1080, f"{s.x},{s.y:.0f} on a {a.size} screen")
 
 for _ in range(30):
     s._move(-5, 0)
@@ -314,6 +315,20 @@ srv.stop()
 known.stop()
 joiner.stop()
 
+print("-- arriving does not bounce straight back --")
+b = make_server()
+twitchy = add_peer(b, "desktop", "right", (1128, 752))
+b.x, b.y = 999, 400
+for _ in range(40):
+    b._move(5, 0)
+    if b.active is twitchy:
+        break
+check("across", b.active is twitchy, f"landed at x={b.x:.0f}")
+for _ in range(12):                    # the hand twitches back the way it came
+    b._move(-2, 1)
+check("a twitch on arrival does not send it straight home", b.active is twitchy,
+      f"x={b.x:.0f}")
+
 print("-- coming home is easier than leaving --")
 e = make_server()
 near = add_peer(e, "desktop", "right", (1000, 800))
@@ -439,6 +454,28 @@ time.sleep(1.4)
 check("if it stops responding it lets go of the keyboard anyway",
       not any(r.grabbed for r in w._readers.values()))
 w.running = False
+
+print("-- letting go really lets go --")
+import glob as _glob
+from lmflow.linux_input import DeviceInfo, InputReader, VirtualDevice as RealDevice
+try:
+    probe = RealDevice("Flow selftest release probe", pointer=True)
+    time.sleep(1.0)
+    node = next(("/dev/input/" + os.path.basename(p)
+                 for p in sorted(_glob.glob("/sys/class/input/event*"))
+                 if open(os.path.join(p, "device", "name")).read().strip()
+                 == "Flow selftest release probe"), None)
+    holder = InputReader(DeviceInfo(node, "probe", "mouse"))
+    other = InputReader(DeviceInfo(node, "probe", "mouse"))
+    holder.grab()
+    held = not server_mod._free(other)
+    released = holder.ungrab()
+    check("a device we hold is really held", held)
+    check("and letting go of it really lets go",
+          released and server_mod._free(other))
+    holder.close(); other.close(); probe.close()
+except Exception as exc:
+    print(f"SKIP  release check needs /dev/uinput ({exc})")
 
 print("-- what the tray is shown --")
 t = make_server()

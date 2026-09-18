@@ -129,17 +129,23 @@ class InputReader:
         self._buf = b""
 
     def grab(self):
+        # EVIOCGRAB takes its argument as a plain number, not a pointer to one.
+        # Passing packed bytes hands the kernel a pointer, which is never zero -
+        # so every "release" was really a second grab, refused, and swallowed.
         if not self.grabbed:
-            fcntl.ioctl(self.fd, EVIOCGRAB, struct.pack("i", 1))
+            fcntl.ioctl(self.fd, EVIOCGRAB, 1)
             self.grabbed = True
 
     def ungrab(self):
-        if self.grabbed:
-            try:
-                fcntl.ioctl(self.fd, EVIOCGRAB, struct.pack("i", 0))
-            except OSError:
-                pass
-            self.grabbed = False
+        """Returns False if the kernel refused - it no longer pretends."""
+        if not self.grabbed:
+            return True
+        try:
+            fcntl.ioctl(self.fd, EVIOCGRAB, 0)
+        except OSError:
+            return False
+        self.grabbed = False
+        return True
 
     def read(self):
         """Yield (type, code, value) tuples currently available."""

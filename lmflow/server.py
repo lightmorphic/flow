@@ -5,6 +5,7 @@ One machine may sit on each edge of this screen, so up to four at once.
 from __future__ import annotations
 
 import errno
+import fcntl
 import json
 import queue
 import selectors
@@ -17,8 +18,9 @@ import time
 from . import config, discovery, net, protocol, screen, status
 from .clipboard import Clipboard
 from .hotkeys import HotkeyWatcher
-from .linux_input import (ABS_RANGE, ABS_X, ABS_Y, EV_ABS, EV_KEY, EV_REL,
-                          InputError, InputReader, REL_X, REL_Y, list_devices)
+from .linux_input import (ABS_RANGE, ABS_X, ABS_Y, EVIOCGRAB, EV_ABS, EV_KEY,
+                          EV_REL, InputError, InputReader, REL_X, REL_Y,
+                          list_devices)
 from .touchpad import TouchpadTranslator
 
 RESCAN_SECONDS = 3.0
@@ -27,6 +29,19 @@ WATCHDOG_SECONDS = 4.0
 SILENCE_SECONDS = 8.0
 EDGES = ("right", "left", "top", "bottom")
 OPPOSITE = {"right": "left", "left": "right", "top": "bottom", "bottom": "top"}
+
+
+def _free(reader):
+    """True if nothing holds a grab on this device: take one and give it back."""
+    try:
+        fcntl.ioctl(reader.fd, EVIOCGRAB, 1)
+    except OSError:
+        return False
+    try:
+        fcntl.ioctl(reader.fd, EVIOCGRAB, 0)
+    except OSError:
+        return False
+    return True
 
 
 class Peer:
@@ -179,6 +194,28 @@ class Server:
             self._pads.pop(path, None)
             self.log(f"device gone: {reader.info.name}")
 
+    def _release_everything(self):
+        """Close every device and open it again, ungrabbed.
+
+        Asking the kernel to release a grab can fail quietly; closing the file
+        cannot. This is the one step that must never be half-done - if it is,
+        the computer you are sitting at keeps a mouse nothing is reading.
+        """
+        for path, reader in list(self._readers.items()):
+            try:
+                self._selector.unregister(reader.fd)
+            except (KeyError, ValueError):
+                pass
+            reader.close()
+        self._readers.clear()
+        self._pads.clear()
+        self._scan_devices()
+        stuck = [r.info.name for r in self._readers.values() if not _free(r)]
+        if stuck:
+            self.log(f"WARNING still held by something: {', '.join(stuck)}")
+        else:
+            self.log(f"let go of {len(self._readers)} device(s), checked")
+
     def _grab_all(self, grab):
         done, failed = [], []
         for reader in self._readers.values():
@@ -246,14 +283,19 @@ class Server:
         if self.active is not None:
             self.active.send(protocol.pack(protocol.LEAVE, b""))
         rw, rh = peer.size
+        # Land well inside, not two pixels from the edge: coming home only
+        # takes a nudge, and a pointer parked against the edge would be
+        # nudged straight back by the first twitch of the hand.
+        ix = max(40, rw // 20)
+        iy = max(40, rh // 20)
         if peer.edge == "right":
-            nx, ny = 2, int(self._frac_y() * rh)
+            nx, ny = ix, int(self._frac_y() * rh)
         elif peer.edge == "left":
-            nx, ny = rw - 3, int(self._frac_y() * rh)
+            nx, ny = rw - 1 - ix, int(self._frac_y() * rh)
         elif peer.edge == "top":
-            nx, ny = int(self._frac_x() * rw), rh - 3
+            nx, ny = int(self._frac_x() * rw), rh - 1 - iy
         else:
-            nx, ny = int(self._frac_x() * rw), 2
+            nx, ny = int(self._frac_x() * rw), iy
         self.x, self.y = nx, ny
         was_local = self.active is None
         peer.heard = time.monotonic()      # it has not gone quiet: we just arrived
@@ -281,7 +323,7 @@ class Server:
             self.x, self.y = int(self._frac_x() * self.width), self.height - 3
         self.active = None
         self._push = 0.0
-        self._grab_all(False)
+        self._release_everything()
         peer.send(protocol.pack(protocol.LEAVE, b""))
         self.log("pointer back on this machine")
         self.publish()
@@ -549,7 +591,7 @@ class Server:
             del self.peers[peer.id]
         if self.active is peer:
             self.active = None
-            self._grab_all(False)
+            self._release_everything()
         peer.close()
         self.log(f"{peer.name} disconnected")
         self.publish()
