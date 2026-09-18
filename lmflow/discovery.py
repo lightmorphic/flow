@@ -37,6 +37,9 @@ def machine_name() -> str:
 
 
 SIOCGIFBRDADDR = 0x8919
+SIOCGIFADDR = 0x8915
+SIOCGIFNETMASK = 0x891B
+LARGEST_SWEEP = 1024       # a /22 at most; nobody's home network is bigger
 
 
 def _broadcast_addresses():
@@ -62,6 +65,31 @@ def _broadcast_addresses():
     finally:
         sock.close()
     return sorted(addrs)
+
+
+def _local_networks():
+    """The private networks this machine is on, small enough to ask one by one."""
+    import ipaddress
+    found = []
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        for _index, name in socket.if_nameindex():
+            try:
+                request = struct.pack("256s", name.encode()[:15])
+                address = socket.inet_ntoa(fcntl.ioctl(sock.fileno(), SIOCGIFADDR, request)[20:24])
+                mask = socket.inet_ntoa(fcntl.ioctl(sock.fileno(), SIOCGIFNETMASK, request)[20:24])
+            except OSError:
+                continue
+            try:
+                network = ipaddress.ip_network(f"{address}/{mask}", strict=False)
+            except ValueError:
+                continue
+            if (network.is_private and not network.is_loopback
+                    and 2 < network.num_addresses <= LARGEST_SWEEP + 2):
+                found.append((network, address))
+    finally:
+        sock.close()
+    return found
 
 
 class Responder:
@@ -151,7 +179,7 @@ class Seeker:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         sock.bind(("0.0.0.0", 0))
-        sock.settimeout(0.5)
+        sock.settimeout(0.2)
         self._sock = sock
         threading.Thread(target=self._loop, daemon=True).start()
 
@@ -163,27 +191,61 @@ class Seeker:
             except OSError:
                 pass
 
+    QUESTION = json.dumps({"app": MAGIC, "q": 1}).encode("utf-8")
+    SWEEP_BATCH = 48         # machines asked per step - a gentle trickle
+
     def _ask(self):
-        question = json.dumps({"app": MAGIC, "q": 1}).encode("utf-8")
         for target in _broadcast_addresses():
             try:
-                self._sock.sendto(question, (target, PORT))
+                self._sock.sendto(self.QUESTION, (target, PORT))
+            except OSError:
+                pass
+
+    def _sweep_list(self):
+        """Every machine on the network, to be asked by name.
+
+        An answer to a question shouted at everyone comes back from one
+        particular machine, and a strict firewall does not count that as a
+        reply - so it is dropped. An answer to a question asked of that very
+        machine always counts as a reply.
+        """
+        targets = []
+        for network, own in _local_networks():
+            targets.extend(str(h) for h in network.hosts() if str(h) != own)
+        return targets
+
+    def _ask_some(self, targets):
+        # Never wait: a question to an address with nobody behind it must not
+        # hold up listening for the answer from the one that is there.
+        for address in targets:
+            try:
+                self._sock.sendto(self.QUESTION, socket.MSG_DONTWAIT, (address, PORT))
             except OSError:
                 pass
 
     def _loop(self):
         last_ask = 0.0
+        pending = []
         while not self._stop.is_set():
             now = time.monotonic()
             if now - last_ask > INTERVAL:
                 last_ask = now
                 self._ask()
+                if not self._seen and not pending:
+                    pending = self._sweep_list()
+            if pending and not self._seen:
+                batch, pending = pending[:self.SWEEP_BATCH], pending[self.SWEEP_BATCH:]
+                self._ask_some(batch)
             try:
                 data, addr = self._sock.recvfrom(4096)
-            except (socket.timeout, TimeoutError):
+            except (socket.timeout, TimeoutError, BlockingIOError):
                 continue
             except OSError:
-                return
+                # A "nobody here" from an address that was asked can show up
+                # as an error on the next read. Only a closed socket ends this.
+                if self._stop.is_set():
+                    return
+                continue
             try:
                 msg = json.loads(data.decode("utf-8"))
             except ValueError:
