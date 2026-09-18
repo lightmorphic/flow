@@ -80,6 +80,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.7.5" date="2026-09-18">
+      <description>
+        <p>Crossing over works the second time and every time after, not only the first.</p>
+      </description>
+    </release>
     <release version="0.7.4" date="2026-09-18">
       <description>
         <p>Letting go of the mouse and keyboard now really lets go, so the computer you are sitting at never locks up after the pointer comes home.</p>

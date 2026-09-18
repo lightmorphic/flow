@@ -1,5 +1,5 @@
 Name:           lightmorphic-flow
-Version:        0.7.4
+Version:        0.7.5
 Release:        1%{?dist}
 Summary:        Share one mouse, keyboard and clipboard between Linux computers
 
@@ -192,6 +192,9 @@ fi
 %{_datadir}/icons/hicolor/*/apps/uk.lightmorph.Flow*.png
 
 %changelog
+* Fri Sep 18 2026 Lightmorphic <github@lightmorphic.com> - 0.7.5-1
+- Crossing a second time works, and Flow never takes hold of its own devices
+
 * Fri Sep 18 2026 Lightmorphic <github@lightmorphic.com> - 0.7.4-1
 - Letting go of the mouse and keyboard really lets go
 

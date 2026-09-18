@@ -44,6 +44,10 @@ DEFAULTS = {
     "share_clipboard": True,
     "clipboard_poll_ms": 700,
     "pointer_speed": 1.0,
+    # On your own screen the desktop speeds the pointer up, and Flow cannot
+    # see where it really is. Counting movement generously means Flow reaches
+    # an edge no later than the real pointer does, so pushing always crosses.
+    "local_edge_speed": 2.5,
     # "position" is exact and cannot drift. "movement" is the older way, for a
     # desktop that will not accept a pointer told where to be.
     "pointer_mode": "position",

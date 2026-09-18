@@ -154,6 +154,8 @@ class Server:
     def _wanted(self, info):
         if info.name in self.cfg.get("ignore_devices", []):
             return False
+        if info.name.startswith("Lightmorphic Flow") or info.name.startswith("Flow "):
+            return False                   # our own, made to receive - never to read
         if info.kind == "touchpad":
             return bool(self.cfg["grab_touchpads"])
         return info.kind in ("mouse", "keyboard")
@@ -341,14 +343,19 @@ class Server:
         return (self.width, self.height) if self.active is None else self.active.size
 
     def _move(self, dx, dy):
-        speed = float(self.cfg["pointer_speed"])
+        # Where the pointer is, is counted generously on your own screen so the
+        # edge is always reachable. How hard you push is counted in real hand
+        # movement, so a hot corner is still never mistaken for a crossing.
+        raw_dx, raw_dy = dx, dy
+        speed = float(self.cfg["pointer_speed"] if self.active is not None
+                      else self.cfg.get("local_edge_speed", 2.5))
         dx *= speed
         dy *= speed
         w, h = self._screen()
         self.x = min(w - 1, max(0, self.x + dx))
         self.y = min(h - 1, max(0, self.y + dy))
 
-        pressing = {"right": dx, "left": -dx, "bottom": dy, "top": -dy}
+        pressing = {"right": raw_dx, "left": -raw_dx, "bottom": raw_dy, "top": -raw_dy}
         touching = {"right": self.x >= w - 1, "left": self.x <= 0,
                     "bottom": self.y >= h - 1, "top": self.y <= 0}
 

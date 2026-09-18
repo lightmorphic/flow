@@ -455,6 +455,36 @@ check("if it stops responding it lets go of the keyboard anyway",
       not any(r.grabbed for r in w._readers.values()))
 w.running = False
 
+print("-- the second crossing --")
+d = make_server()
+far = add_peer(d, "framework", "left", (1128, 752))
+d.x, d.y = 5, 400
+for _ in range(40):
+    d._move(-5, 0)
+    if d.active is far:
+        break
+check("across the first time", d.active is far)
+for _ in range(40):
+    d._move(5, 0)
+    if d.active is None:
+        break
+check("and home", d.active is None)
+# Now use the desktop: well across to the right and most of the way back, as
+# the real pointer would go - it is sped up, so the real one reaches the left
+# edge sooner than raw movement suggests.
+for _ in range(60):
+    d._move(8, 0)
+for _ in range(60):
+    d._move(-6, 0)
+pushes = 0
+for _ in range(400):
+    d._move(-5, 0)
+    pushes += 1
+    if d.active is far:
+        break
+check("the second crossing does not need an endless push", d.active is far and pushes < 120,
+      f"{pushes} small pushes")
+
 print("-- letting go really lets go --")
 import glob as _glob
 from lmflow.linux_input import DeviceInfo, InputReader, VirtualDevice as RealDevice
