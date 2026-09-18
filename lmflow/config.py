@@ -48,6 +48,9 @@ DEFAULTS = {
     # see where it really is. Counting movement generously means Flow reaches
     # an edge no later than the real pointer does, so pushing always crosses.
     "local_edge_speed": 1.5,
+    # Flow places this computer's own pointer, so it always knows where it is.
+    # Off: it only follows the pointer by counting, which drifts.
+    "drive_local_pointer": True,
     # "position" is exact and cannot drift. "movement" is the older way, for a
     # desktop that will not accept a pointer told where to be.
     "pointer_mode": "position",

@@ -20,7 +20,7 @@ from .clipboard import Clipboard
 from .hotkeys import HotkeyWatcher
 from .linux_input import (ABS_RANGE, ABS_X, ABS_Y, EVIOCGRAB, EV_ABS, EV_KEY,
                           EV_REL, EV_SYN, InputError, InputReader, REL_X, REL_Y,
-                          SYN_REPORT, list_devices)
+                          SYN_REPORT, VirtualDevice, list_devices)
 from .touchpad import TouchpadTranslator
 
 RESCAN_SECONDS = 3.0
@@ -128,6 +128,15 @@ class Server:
         self._dx = self._dy = 0.0
         self._press_dx = self._press_dy = 0.0
         self._last_place = None
+        # Driving this machine's own pointer. GNOME on Wayland will not say
+        # where the pointer is, and counting movement to guess it drifts - a
+        # crossing half a screen early. So the mice are held all the time and
+        # Flow places the pointer itself: then it always knows where it is.
+        self.local_ptr = None
+        self.local_press = None
+        self._local_place = None
+        self._local_batch = []
+        self._driving = False
         self._push = 0.0
         self._push_edge = None
         self._push_started = 0.0
@@ -189,8 +198,12 @@ class Server:
             self._selector.register(reader.fd, selectors.EVENT_READ, reader)
             if info.kind == "touchpad":
                 self._pads[info.path] = TouchpadTranslator()
-            if self.active is not None:
-                reader.grab()
+            if self.active is not None or self._drives_kind(info.kind):
+                try:
+                    reader.grab()
+                except OSError as exc:
+                    self.log(f"could not take {info.name} ({exc}); its movement "
+                             "will be followed, not driven")
             self.log(f"device: {info.kind} {info.name}")
 
         for path in [p for p in self._readers if p not in seen]:
@@ -203,6 +216,35 @@ class Server:
             self._pads.pop(path, None)
             self.log(f"device gone: {reader.info.name}")
 
+    def _drives_kind(self, kind):
+        return kind == "mouse" and self.local_ptr is not None
+
+    def _drives(self, reader):
+        return self._drives_kind(reader.info.kind) and reader.grabbed
+
+    def _open_local(self):
+        if not self.cfg.get("drive_local_pointer", True):
+            return
+        try:
+            self.local_ptr = VirtualDevice("Lightmorphic Flow local pointer",
+                                           pointer=True, absolute=True)
+            self.local_press = VirtualDevice("Lightmorphic Flow local pressure",
+                                             pointer=True)
+            time.sleep(0.3)
+            self._place_local(force=True)
+            self.log("driving this computer's pointer, so its edges are exact")
+        except (OSError, InputError) as exc:
+            self.local_ptr = self.local_press = None
+            self.log(f"cannot drive this pointer ({exc}); following it instead")
+
+    def _place_local(self, force=False):
+        place = (max(0, min(ABS_RANGE, int(self.x * ABS_RANGE / max(1, self.width - 1)))),
+                 max(0, min(ABS_RANGE, int(self.y * ABS_RANGE / max(1, self.height - 1)))))
+        if force or place != self._local_place:
+            self._local_place = place
+            return [(EV_ABS, ABS_X, place[0]), (EV_ABS, ABS_Y, place[1])]
+        return []
+
     def _release_everything(self):
         """Close every device and open it again, ungrabbed.
 
@@ -211,15 +253,18 @@ class Server:
         the computer you are sitting at keeps a mouse nothing is reading.
         """
         for path, reader in list(self._readers.items()):
+            if self._drives_kind(reader.info.kind):
+                continue                   # this machine's own pointer: still ours
             try:
                 self._selector.unregister(reader.fd)
             except (KeyError, ValueError):
                 pass
             reader.close()
-        self._readers.clear()
-        self._pads.clear()
+            self._readers.pop(path, None)
+            self._pads.pop(path, None)
         self._scan_devices()
-        stuck = [r.info.name for r in self._readers.values() if not _free(r)]
+        stuck = [r.info.name for r in self._readers.values()
+                 if not self._drives_kind(r.info.kind) and not _free(r)]
         if stuck:
             self.log(f"WARNING still held by something: {', '.join(stuck)}")
         else:
@@ -333,6 +378,8 @@ class Server:
             self.x, self.y = int(self._frac_x() * self.width), self.height - 3
         self.active = None
         self._push = 0.0
+        self._local_place = None
+        self._press_dx = self._press_dy = 0.0
         self._release_everything()
         peer.send(protocol.pack(protocol.LEAVE, b""))
         self.log("pointer back on this machine")
@@ -365,12 +412,12 @@ class Server:
         want_x, want_y = self.x + dx, self.y + dy
         self.x = min(w - 1, max(0, want_x))
         self.y = min(h - 1, max(0, want_y))
-        if self.active is not None:
-            # What the edge of the other screen swallowed. Passed on as real
-            # movement it is pressure against that edge, which is what makes
-            # GNOME's hot corners and hot edges fire there.
-            self._press_dx += want_x - self.x
-            self._press_dy += want_y - self.y
+        # What the edge swallowed. Passed on as real movement it is pressure
+        # against that edge, which is what makes GNOME's hot corners and hot
+        # edges fire - on the other machine, and on this one when Flow is
+        # driving its pointer.
+        self._press_dx += want_x - self.x
+        self._press_dy += want_y - self.y
 
         pressing = {"right": raw_dx, "left": -raw_dx, "bottom": raw_dy, "top": -raw_dy}
         touching = {"right": self.x >= w - 1, "left": self.x <= 0,
@@ -440,6 +487,7 @@ class Server:
         path = reader.info.path
         pad = self._pads.get(path)
         tracker = self._trackers.get(path)
+        self._driving = self._drives(reader)
         for etype, code, value, when in events:
             if pad is not None:
                 for out in pad.feed(etype, code, value):
@@ -481,12 +529,34 @@ class Server:
             return                      # sent as a position, not a movement
         if self.active is not None:
             self._batch.append((etype, code, value))
+        elif self._driving and (
+                (etype == EV_KEY and 0x110 <= code <= 0x117)
+                or (etype == EV_REL and code not in (REL_X, REL_Y))):
+            self._local_batch.append((etype, code, value))   # buttons and wheels
+
+    def _flush_local(self):
+        events = self._place_local() if self._moved else []
+        events.extend(self._local_batch)
+        self._local_batch.clear()
+        if events:
+            self.local_ptr.emit(events)
+        push_x, push_y = int(round(self._press_dx)), int(round(self._press_dy))
+        if push_x or push_y:
+            self.local_press.emit([(EV_REL, REL_X, push_x), (EV_REL, REL_Y, push_y)])
+        self._press_dx -= push_x
+        self._press_dy -= push_y
 
     def _flush(self):
         peer = self.active
         if peer is None:
             self._batch.clear()
+            if self._driving:
+                self._flush_local()
+            else:
+                self._local_batch.clear()
+                self._press_dx = self._press_dy = 0.0
             self._moved = False
+            self._dx = self._dy = 0.0
             return
         events = []
         if self._moved and not peer.positions:
@@ -538,6 +608,7 @@ class Server:
 
     def run(self):
         self.running = True
+        self._open_local()
         self._scan_devices()
         threading.Thread(target=self._watchdog, daemon=True).start()
         threading.Thread(target=self._accept_loop, daemon=True).start()
@@ -637,6 +708,10 @@ class Server:
         for reader in list(self._readers.values()):
             reader.close()
         self._readers.clear()
+        for dev in (self.local_ptr, self.local_press):
+            if dev is not None:
+                dev.close()
+        self.local_ptr = self.local_press = None
 
     # --------------------------------------------------------------- network
     def _broadcast_clipboard(self, text, skip=None):

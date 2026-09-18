@@ -80,6 +80,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.8.0" date="2026-09-18">
+      <description>
+        <p>Flow now drives the main computer's pointer itself, so it always knows where it is and never crosses early.</p>
+      </description>
+    </release>
     <release version="0.7.12" date="2026-09-18">
       <description>
         <p>The pointer no longer jumps to the other computer before it has reached the edge.</p>

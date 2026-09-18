@@ -435,6 +435,73 @@ for i in range(120):                      # a slow drift to the left, not a push
 check("a slow drift a quarter of a screen from the edge does not jump across",
       n.active is None, f"stopped at x={n.x:.0f}")
 
+print("-- driving this computer's own pointer --")
+from lmflow.linux_input import DeviceInfo, EV_SYN as _SYN, SYN_REPORT as _SR, EV_ABS as _ABS
+class FakeLocal:
+    def __init__(self): self.events = []
+    def emit(self, events): self.events.extend(events)
+    def close(self): pass
+
+class FakeMouse:
+    """A mouse held by Flow, reporting movement with timestamps."""
+    def __init__(self):
+        self.info = DeviceInfo("/dev/input/fake-mouse", "fake mouse", "mouse")
+        self.grabbed = True
+        self.queue = []
+    def read(self):
+        out, self.queue = self.queue, []
+        return out
+    def ungrab(self): self.grabbed = False; return True
+    def grab(self): self.grabbed = True
+    def close(self): pass
+
+from lmflow.linux_input import DeviceInfo, EV_SYN as _SYN, SYN_REPORT as _SR, EV_ABS as _ABS
+g = make_server()
+g.curve = accel_mod.Curve(0.0, "adaptive")
+g.local_ptr, g.local_press = FakeLocal(), FakeLocal()
+left_peer = add_peer(g, "framework", "left", (1128, 752))
+mouse = FakeMouse()
+g._readers[mouse.info.path] = mouse
+g._trackers[mouse.info.path] = accel_mod.Tracker(1000)
+g.x, g.y = 500, 540
+clock = [2000.0]
+def report(dx, dy=0):
+    clock[0] += 0.008
+    mouse.queue = [(2, 0, dx, clock[0]), (2, 1, dy, clock[0]), (_SYN, _SR, 0, clock[0])]
+    g._handle(mouse)
+
+report(-10)
+placed = [e for e in g.local_ptr.events if e[0] == _ABS]
+check("this computer's pointer is placed by Flow", bool(placed), str(placed[-2:]))
+expected = int(g.x * 32767 / (g.width - 1))
+check("exactly where Flow believes it to be", placed[-2][2] == expected,
+      f"placed at {placed[-2][2]}, belief {expected}")
+
+# Half way across, a long slow drift never jumps: nothing is guessed any more.
+for _ in range(40):
+    report(-2)
+check("half a screen from the edge stays on this computer", g.active is None,
+      f"x={g.x:.0f}")
+
+# And at the real edge, a push crosses.
+g.x = 0
+for _ in range(60):
+    report(-6)
+    if g.active is left_peer:
+        break
+check("at the edge a push crosses", g.active is left_peer)
+
+# Buttons and wheel reach this computer while at home.
+g.go_local()
+g.local_ptr.events.clear()
+mouse.queue = [(1, 0x110, 1, clock[0]), (_SYN, _SR, 0, clock[0]),
+               (1, 0x110, 0, clock[0]), (2, 8, -1, clock[0]), (_SYN, _SR, 0, clock[0])]
+g._handle(mouse)
+check("clicks and scrolling reach this computer",
+      (1, 0x110, 1) in g.local_ptr.events and (2, 8, -1) in g.local_ptr.events,
+      str(g.local_ptr.events))
+check("and the mouse is still held after coming home", mouse.grabbed)
+
 print("-- a hot corner can build up pressure --")
 from lmflow.linux_input import EV_ABS as _ABS, EV_REL as _REL
 k = make_server()
