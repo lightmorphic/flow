@@ -359,6 +359,15 @@ class Server:
         touching = {"right": self.x >= w - 1, "left": self.x <= 0,
                     "bottom": self.y >= h - 1, "top": self.y <= 0}
 
+        # A mouse reports sideways and up-and-down movement as separate events.
+        # While you push into an edge, the up-and-down part is neither pushing
+        # nor pulling away, so it must not count against you. Throwing the push
+        # away on every wobble is what made crossing feel like a wall.
+        edge_now = self._push_edge
+        if (edge_now is not None and touching.get(edge_now)
+                and pressing.get(edge_now, 0) == 0):
+            return
+
         if self.active is None:
             wanted = [e for e in EDGES
                       if touching[e] and pressing[e] > 0 and self.peer_on(e)]
@@ -392,7 +401,7 @@ class Server:
         if edge != self._push_edge or now - self._push_started > window:
             self._push = 0.0
             self._push_edge = edge
-            self._push_started = now
+        self._push_started = now           # measured from the latest push
         self._push += pressing[edge]
         if self._push < needed:
             return

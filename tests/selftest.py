@@ -455,6 +455,30 @@ check("if it stops responding it lets go of the keyboard anyway",
       not any(r.grabbed for r in w._readers.values()))
 w.running = False
 
+print("-- a real hand is not a straight line --")
+w = make_server()
+wall = add_peer(w, "framework", "left", (1128, 752))
+w.x, w.y = 3, 400
+moves = 0
+for i in range(80):
+    w._move(-4, 0)                     # the push
+    w._move(0, 1 if i % 2 else -1)     # and the wobble a real hand adds
+    moves += 1
+    if w.active is wall:
+        break
+check("pushing with a wobble still crosses first time", w.active is wall,
+      f"{moves} pushes")
+
+v = make_server()
+slow = add_peer(v, "framework", "left", (1128, 752))
+v.x, v.y = 3, 400
+for _ in range(40):
+    v._move(-2, 0)
+    time.sleep(0.03)                   # a steady, unhurried push
+    if v.active is slow:
+        break
+check("a steady push does not run out part way", v.active is slow)
+
 print("-- the second crossing --")
 d = make_server()
 far = add_peer(d, "framework", "left", (1128, 752))

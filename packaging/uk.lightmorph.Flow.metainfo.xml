@@ -80,6 +80,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.7.7" date="2026-09-18">
+      <description>
+        <p>Crossing over no longer feels like pushing through a wall.</p>
+      </description>
+    </release>
     <release version="0.7.6" date="2026-09-18">
       <description>
         <p>The shared clipboard works on GNOME with Wayland, and crossing over is less fussy.</p>
