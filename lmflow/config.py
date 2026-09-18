@@ -33,6 +33,8 @@ DEFAULTS = {
     "corner_guard_px": 140,      # no crossing this close to a corner (hot corners stay yours)
     "push_px": 90,               # how far you must keep pushing past the edge to cross
     "push_ms": 450,              # ...within this long, or the push resets
+    "return_push_px": 20,        # coming home is easy: a nudge, not a shove
+    "return_push_ms": 2000,      # ...and you may take your time over it
     "edge_only_with_hotkey": False,
 
     "hotkey_switch": "ctrl+alt+s",

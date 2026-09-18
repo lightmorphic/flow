@@ -184,7 +184,9 @@ class Server:
                 reader.grab() if grab else reader.ungrab()
                 done.append(reader.info.name)
             except OSError as exc:
-                failed.append(f"{reader.info.name} ({exc})")
+                why = ("something else is already holding it"
+                       if getattr(exc, "errno", 0) == errno.EBUSY else str(exc))
+                failed.append(f"{reader.info.name} ({why})")
         for pad in self._pads.values():
             pad.reset()
         word = "took" if grab else "let go of"
@@ -327,13 +329,21 @@ class Server:
                 self._push = 0.0               # hot corners belong to the desktop
                 return
 
+        # Leaving home is deliberately hard, so a hot corner is never mistaken
+        # for a crossing. Coming home must be easy: there is nothing to protect
+        # on a machine you are only borrowing, and being stranded is the worst
+        # thing that can happen.
+        going_home = self.active is not None
+        needed = float(self.cfg["return_push_px" if going_home else "push_px"])
+        window = self.cfg["return_push_ms" if going_home else "push_ms"] / 1000.0
+
         now = time.monotonic()
-        if edge != self._push_edge or now - self._push_started > self.cfg["push_ms"] / 1000.0:
+        if edge != self._push_edge or now - self._push_started > window:
             self._push = 0.0
             self._push_edge = edge
             self._push_started = now
         self._push += pressing[edge]
-        if self._push < float(self.cfg["push_px"]):
+        if self._push < needed:
             return
         self._push = 0.0
         if self.cfg["edge_only_with_hotkey"]:

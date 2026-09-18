@@ -302,6 +302,43 @@ srv.stop()
 known.stop()
 joiner.stop()
 
+print("-- coming home is easier than leaving --")
+e = make_server()
+near = add_peer(e, "desktop", "right", (1000, 800))
+e.x, e.y = 999, 400
+nudges_out = 0
+for _ in range(60):
+    e._move(3, 0)
+    nudges_out += 1
+    if e.active is near:
+        break
+check("leaving takes a firm push", e.active is near and nudges_out > 10,
+      f"{nudges_out} small movements")
+e.x, e.y = 999, 400
+nudges_home = 0
+for _ in range(60):
+    e._move(3, 0)
+    nudges_home += 1
+    if e.active is None:
+        break
+check("coming home takes only a nudge", e.active is None and nudges_home < nudges_out,
+      f"{nudges_home} to come home against {nudges_out} to leave")
+
+# And slowly, without the push being forgotten halfway.
+e.x, e.y = 999, 400
+for _ in range(20):
+    e._move(3, 0)
+    if e.active is near:
+        break
+check("across again", e.active is near)
+e.x, e.y = 999, 400
+for _ in range(10):
+    e._move(3, 0)
+    time.sleep(0.12)
+    if e.active is None:
+        break
+check("and a slow, gentle nudge home still works", e.active is None)
+
 print("-- getting back --")
 r = make_server()
 far = add_peer(r, "desktop", "right", (1920, 1080))

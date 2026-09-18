@@ -272,6 +272,8 @@ class Window(Adw.ApplicationWindow):
                    "how far you keep pushing past the edge")
         self._spin(group, "Push time limit", "push_ms", 100, 2000, 50,
                    "milliseconds before a push is forgotten")
+        self._spin(group, "Nudge needed to come back", "return_push_px", 2, 200, 5,
+                   "coming home is deliberately easier than leaving")
 
         row = Adw.SwitchRow(title="Only cross with the hotkey",
                             subtitle=f"{self.cfg['hotkey_switch']} steps through each computer",
