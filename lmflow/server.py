@@ -123,6 +123,7 @@ class Server:
         self._batch = []
         self._moved = False
         self._dx = self._dy = 0.0
+        self._press_dx = self._press_dy = 0.0
         self._push = 0.0
         self._push_edge = None
         self._push_started = 0.0
@@ -352,8 +353,15 @@ class Server:
         dx *= speed
         dy *= speed
         w, h = self._screen()
-        self.x = min(w - 1, max(0, self.x + dx))
-        self.y = min(h - 1, max(0, self.y + dy))
+        want_x, want_y = self.x + dx, self.y + dy
+        self.x = min(w - 1, max(0, want_x))
+        self.y = min(h - 1, max(0, want_y))
+        if self.active is not None:
+            # What the edge of the other screen swallowed. Passed on as real
+            # movement it is pressure against that edge, which is what makes
+            # GNOME's hot corners and hot edges fire there.
+            self._press_dx += want_x - self.x
+            self._press_dy += want_y - self.y
 
         pressing = {"right": raw_dx, "left": -raw_dx, "bottom": raw_dy, "top": -raw_dy}
         touching = {"right": self.x >= w - 1, "left": self.x <= 0,
@@ -372,9 +380,12 @@ class Server:
             wanted = [e for e in EDGES
                       if touching[e] and pressing[e] > 0 and self.peer_on(e)]
         else:
-            # Any edge brings you home, not only the one you came in by. Being
-            # stuck on another machine is far worse than crossing back early.
-            wanted = [e for e in EDGES if touching[e] and pressing[e] > 0]
+            # Only the edge facing home takes you home. The other edges and
+            # corners belong to the machine you are using - its own hot corners
+            # and panels live there. Escape five times still brings you back
+            # from anywhere.
+            back = OPPOSITE[self.active.edge]
+            wanted = [back] if (touching[back] and pressing[back] > 0) else []
 
         if not wanted:
             self._push = 0.0
@@ -464,6 +475,13 @@ class Server:
                            max(0, min(ABS_RANGE,
                                       int(self.y * ABS_RANGE / max(1, height - 1))))))
             self._moved = False
+        if peer.positions and (self._press_dx or self._press_dy):
+            push_x, push_y = int(round(self._press_dx)), int(round(self._press_dy))
+            if push_x or push_y:
+                events.append((EV_REL, REL_X, push_x))
+                events.append((EV_REL, REL_Y, push_y))
+            self._press_dx -= push_x
+            self._press_dy -= push_y
         events.extend(self._batch)
         self._batch.clear()
         if events:

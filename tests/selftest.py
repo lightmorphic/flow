@@ -287,7 +287,7 @@ srv._moved = True
 srv._batch = [(1, 30, 1), (1, 30, 0)]
 srv._flush()
 time.sleep(0.4)
-keyboard = made[1] if len(made) > 1 else None
+keyboard = made[-1] if made else None       # pointer, pressure, then keyboard
 from lmflow.linux_input import ABS_RANGE, ABS_X, ABS_Y, EV_ABS
 abs_sent = [e for e in (pointer.events if pointer else []) if e[0] == EV_ABS]
 check("the pointer's position arrived, not its movement", bool(abs_sent),
@@ -341,10 +341,10 @@ for _ in range(60):
         break
 check("leaving takes a firm push", e.active is near and nudges_out > 10,
       f"{nudges_out} small movements")
-e.x, e.y = 999, 400
+e.x, e.y = 0, 400
 nudges_home = 0
 for _ in range(60):
-    e._move(3, 0)
+    e._move(-3, 0)
     nudges_home += 1
     if e.active is None:
         break
@@ -358,9 +358,9 @@ for _ in range(20):
     if e.active is near:
         break
 check("across again", e.active is near)
-e.x, e.y = 999, 400
+e.x, e.y = 0, 400
 for _ in range(10):
-    e._move(3, 0)
+    e._move(-3, 0)
     time.sleep(0.12)
     if e.active is None:
         break
@@ -376,12 +376,22 @@ for _ in range(20):
         break
 check("the pointer went across", r.active is far)
 
-# Stuck in the top-left corner of the other screen: every edge must bring you
-# home, corners included, or there is no way back.
+# The other screen's own corners and edges belong to it: its hot corners live
+# there. Pushing into them must not bring you home - only the facing edge does.
 r.x, r.y = 0, 0
+r._press_dx = r._press_dy = 0.0
 for _ in range(40):
     r._move(0, -5)
-check("pushing up from a corner comes home", r.active is None)
+check("pushing into the other machine's corner keeps you there", r.active is far)
+check("and that push is passed on, so its hot corner can fire", r._press_dy < 0,
+      f"pressure {r._press_dy:.0f}")
+r._press_dx = r._press_dy = 0.0
+r.x, r.y = 0, 540
+for _ in range(40):
+    r._move(-5, 0)
+    if r.active is None:
+        break
+check("the edge facing home still brings you home", r.active is None)
 
 r.x, r.y = 999, 400
 for _ in range(20):
@@ -392,9 +402,7 @@ check("across again", r.active is far)
 r.x, r.y = 1919, 540
 for _ in range(40):
     r._move(5, 0)
-    if r.active is None:
-        break
-check("so does the far edge, not only the one you came in by", r.active is None)
+check("the far edge does not bring you home", r.active is far)
 
 print("-- the computer you are sitting at must never freeze --")
 class Deaf:

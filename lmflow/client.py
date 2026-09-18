@@ -30,6 +30,7 @@ class Client:
         self.name = discovery.machine_name()
         self.listener = None
         self.pointer = None
+        self.presser = None
         self.keyboard = None
         self.conn = None
         self._lock = threading.Lock()
@@ -46,14 +47,20 @@ class Client:
             self.pointer = VirtualDevice("Lightmorphic Flow pointer",
                                          pointer=True,
                                          absolute=self.wants_positions)
+            # A pointer that is placed never presses against anything, and
+            # GNOME opens the Overview only on pressure at a hot corner. This
+            # second one carries that pressure when you push into an edge.
+            self.presser = (VirtualDevice("Lightmorphic Flow pointer pressure",
+                                          pointer=True)
+                            if self.wants_positions else None)
             self.keyboard = VirtualDevice("Lightmorphic Flow keyboard", pointer=False)
             time.sleep(0.3)        # let the desktop notice the new devices
 
     def _close_devices(self):
-        for dev in (self.pointer, self.keyboard):
+        for dev in (self.pointer, getattr(self, "presser", None), self.keyboard):
             if dev:
                 dev.close()
-        self.pointer = self.keyboard = None
+        self.pointer = self.keyboard = self.presser = None
 
     # ---------------------------------------------------------------- running
     def publish(self):
@@ -246,13 +253,18 @@ class Client:
             self.log(f"applied {self._applied} pointer events so far")
 
     def _replay(self, events):
+        presser = getattr(self, "presser", None)
+        pressure = [e for e in events
+                    if presser is not None and e[0] == EV_REL and e[1] in (REL_X, REL_Y)]
         pointer_events = [e for e in events
-                          if e[0] in (EV_REL, EV_ABS)
+                          if (e[0] in (EV_REL, EV_ABS) and e not in pressure)
                           or (e[0] == EV_KEY and 0x110 <= e[1] <= 0x117)]
         key_events = [e for e in events if e[0] == EV_KEY and e[1] < 0x100]
         if pointer_events:
             self.pointer.emit(pointer_events)
             self._note(pointer_events)
+        if pressure:
+            presser.emit(pressure)
         if key_events:
             self.keyboard.emit(key_events)
 

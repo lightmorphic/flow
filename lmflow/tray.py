@@ -21,8 +21,18 @@ GLib.set_application_name("Lightmorphic Flow")
 
 from . import __version__, config, permissions, status   # noqa: E402
 
-ICON_HOME = "uk.lightmorph.Flow"
-ICON_AWAY = "uk.lightmorph.Flow-away"
+def _icon(name):
+    """The icon's own file where there is one. Handed a name, some trays go
+    looking in the wrong place and show three dots instead of a picture."""
+    for size in ("64x64", "128x128", "48x48"):
+        path = f"/usr/share/icons/hicolor/{size}/apps/{name}.png"
+        if os.path.exists(path):
+            return path
+    return name
+
+
+ICON_HOME = _icon("uk.lightmorph.Flow")
+ICON_AWAY = _icon("uk.lightmorph.Flow-away")
 POLL_MS = 2000
 SERVICE_CACHE_SECONDS = 5.0
 
@@ -89,10 +99,7 @@ class Tray:
             "lightmorphic-flow", ICON_HOME, module.IndicatorCategory.HARDWARE)
         self.indicator.set_status(module.IndicatorStatus.ACTIVE)
         self.indicator.set_title("Lightmorphic Flow")
-        try:
-            self.indicator.set_icon_theme_path("/usr/share/icons/hicolor")
-        except (AttributeError, TypeError):
-            pass
+
 
         self.menu = Gtk.Menu()
         self.indicator.set_menu(self.menu)
