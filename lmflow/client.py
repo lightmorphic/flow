@@ -37,10 +37,15 @@ class Client:
                                    self.cfg["clipboard_poll_ms"], log=self.log)
 
     # ---------------------------------------------------------------- devices
+    @property
+    def wants_positions(self):
+        return self.cfg.get("pointer_mode", "position") != "movement"
+
     def _open_devices(self):
         if self.pointer is None:
             self.pointer = VirtualDevice("Lightmorphic Flow pointer",
-                                         pointer=True, absolute=True)
+                                         pointer=True,
+                                         absolute=self.wants_positions)
             self.keyboard = VirtualDevice("Lightmorphic Flow keyboard", pointer=False)
             time.sleep(0.3)        # let the desktop notice the new devices
 
@@ -85,8 +90,10 @@ class Client:
             self.listener = discovery.Listener(ignore_id=self.id)
             self.listener.start()
         from . import __version__
+        how = "told where to be" if self.wants_positions else "told how far to move"
         self.log(f"Lightmorphic Flow {__version__}; screen "
-                 f"{self.width}x{self.height}; looking for the other machine")
+                 f"{self.width}x{self.height}; pointer is {how}; "
+                 "looking for the other machine")
         while self.running:
             try:
                 self.publish()
@@ -148,6 +155,7 @@ class Client:
             "id": self.id, "name": self.name, "token": self.cfg["token"],
             "width": self.width, "height": self.height,
             "protocol": self.protocol, "version": __version__,
+            "wants": "position" if self.wants_positions else "movement",
         }))
         framer = protocol.Framer()
         conn.settimeout(10)
@@ -230,6 +238,13 @@ class Client:
         elif kind == protocol.HELLO:
             pass
 
+    def _note(self, events):
+        self._applied = getattr(self, "_applied", 0) + len(events)
+        now = time.monotonic()
+        if now - getattr(self, "_noted", 0) > 5.0:
+            self._noted = now
+            self.log(f"applied {self._applied} pointer events so far")
+
     def _replay(self, events):
         pointer_events = [e for e in events
                           if e[0] in (EV_REL, EV_ABS)
@@ -237,6 +252,7 @@ class Client:
         key_events = [e for e in events if e[0] == EV_KEY and e[1] < 0x100]
         if pointer_events:
             self.pointer.emit(pointer_events)
+            self._note(pointer_events)
         if key_events:
             self.keyboard.emit(key_events)
 

@@ -295,6 +295,13 @@ class Window(Adw.ApplicationWindow):
             row.connect("notify::active", lambda w, _p, k=key: self._save(k, w.get_active()))
             group.add(row)
 
+        exact = Adw.SwitchRow(
+            title="Place the pointer exactly",
+            subtitle="Turn off only if the pointer arrives here but will not move",
+            active=self.cfg.get("pointer_mode", "position") != "movement")
+        exact.connect("notify::active", lambda w, _p: self._set_mode(w.get_active()))
+        group.add(exact)
+
         speed = Adw.SpinRow.new_with_range(0.2, 3.0, 0.1)
         speed.set_title("Pointer speed elsewhere")
         speed.set_digits(1)
@@ -303,6 +310,12 @@ class Window(Adw.ApplicationWindow):
                       lambda w, _p: self._save("pointer_speed", round(w.get_value(), 2)))
         group.add(speed)
         return group
+
+    def _set_mode(self, exact):
+        self._save("pointer_mode", "position" if exact else "movement")
+        # The virtual pointer is built one way or the other, so start afresh.
+        if self.cfg["role"] == "client":
+            _systemctl("try-restart", "lmflow-client.service")
 
     def _spin(self, group, title, key, lo, hi, step, subtitle):
         row = Adw.SpinRow.new_with_range(lo, hi, step)

@@ -44,6 +44,9 @@ DEFAULTS = {
     "share_clipboard": True,
     "clipboard_poll_ms": 700,
     "pointer_speed": 1.0,
+    # "position" is exact and cannot drift. "movement" is the older way, for a
+    # desktop that will not accept a pointer told where to be.
+    "pointer_mode": "position",
 
     "ignore_devices": [],        # device names never to grab
 }

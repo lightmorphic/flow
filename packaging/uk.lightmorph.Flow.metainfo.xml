@@ -80,6 +80,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.7.3" date="2026-09-18">
+      <description>
+        <p>The pointer should now move on the receiving computer, with a switch to fall back if it does not.</p>
+      </description>
+    </release>
     <release version="0.7.2" date="2026-09-18">
       <description>
         <p>Says plainly when the two computers are running versions that cannot work together, instead of half working.</p>

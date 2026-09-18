@@ -43,7 +43,10 @@ UI_SET_EVBIT = _ioc(1, _UI, 100, 4)
 UI_SET_KEYBIT = _ioc(1, _UI, 101, 4)
 UI_SET_RELBIT = _ioc(1, _UI, 102, 4)
 UI_SET_ABSBIT = _ioc(1, _UI, 103, 4)
+UI_SET_PROPBIT = _ioc(1, _UI, 110, 4)
 EVIOCGRAB = _ioc(1, ord("E"), 0x90, 4)
+
+INPUT_PROP_POINTER = 0x00      # "this moves a pointer", not a joystick or a screen
 
 
 class InputError(RuntimeError):
@@ -206,6 +209,9 @@ class VirtualDevice:
             for code in self.BUTTONS:
                 fcntl.ioctl(self.fd, UI_SET_KEYBIT, code)
             if absolute:
+                # Without this the kernel files an absolute device with buttons
+                # under the joystick handler, and the pointer never moves.
+                fcntl.ioctl(self.fd, UI_SET_PROPBIT, INPUT_PROP_POINTER)
                 fcntl.ioctl(self.fd, UI_SET_EVBIT, EV_ABS)
                 for code in (ABS_X, ABS_Y):
                     fcntl.ioctl(self.fd, UI_SET_ABSBIT, code)

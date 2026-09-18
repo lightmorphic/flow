@@ -40,12 +40,13 @@ class Peer:
 
     OUTBOX = 512            # frames; a few seconds of furious mousing
 
-    def __init__(self, ident, name, conn, size, edge):
+    def __init__(self, ident, name, conn, size, edge, positions=True):
         self.id = ident
         self.name = name
         self.conn = conn
         self.size = size
         self.edge = edge
+        self.positions = positions
         self.heard = time.monotonic()
         self.alive = True
         self.outbox = queue.Queue(maxsize=self.OUTBOX)
@@ -106,6 +107,7 @@ class Server:
         self._selector = selectors.DefaultSelector()
         self._batch = []
         self._moved = False
+        self._dx = self._dy = 0.0
         self._push = 0.0
         self._push_edge = None
         self._push_started = 0.0
@@ -370,7 +372,12 @@ class Server:
         if etype == EV_KEY and code < 0x100 and self.hotkeys.feed(code, value):
             return
         if etype == EV_REL and code in (REL_X, REL_Y):
-            self._move(value, 0) if code == REL_X else self._move(0, value)
+            if code == REL_X:
+                self._move(value, 0)
+                self._dx += value
+            else:
+                self._move(0, value)
+                self._dy += value
             self._moved = True
             return                      # sent as a position, not a movement
         if self.active is not None:
@@ -383,7 +390,12 @@ class Server:
             self._moved = False
             return
         events = []
-        if self._moved:
+        if self._moved and not peer.positions:
+            events.append((EV_REL, REL_X, int(round(self._dx))))
+            events.append((EV_REL, REL_Y, int(round(self._dy))))
+            self._dx = self._dy = 0.0
+            self._moved = False
+        elif self._moved:
             # Where the pointer is, on the 0..32767 scale, so the other
             # machine's own mouse acceleration cannot pull the two apart.
             width, height = peer.size
@@ -588,8 +600,10 @@ class Server:
             config.save(self.cfg)
             self._cfg_mtime = config.mtime()
 
-        peer = Peer(ident, name, conn, (int(hello.get("width", 1920)),
-                                        int(hello.get("height", 1080))), entry["edge"])
+        peer = Peer(ident, name, conn,
+                    (int(hello.get("width", 1920)), int(hello.get("height", 1080))),
+                    entry["edge"],
+                    positions=hello.get("wants", "position") != "movement")
         with self._peers_lock:
             old = self.peers.get(ident)
             self.peers[ident] = peer
@@ -601,7 +615,8 @@ class Server:
             "id": discovery.machine_id(),
         }))
         self.log(f"connected: {name} ({hello.get('version', '?')}) at {addr[0]} "
-                 f"on the {peer.edge}")
+                 f"on the {peer.edge}; pointer sent as "
+                 f"{'positions' if peer.positions else 'movements'}")
         self.publish()
         self._read_loop(peer)
 
