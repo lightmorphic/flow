@@ -34,7 +34,8 @@ COLOURS = {
 }
 RING_TRACK = (0.631, 0.631, 0.667, 0.55)
 
-CSS = b".flow-version { font-size: 12px; }"
+CSS = b""".flow-version { font-size: 12px; }
+.flow-dot { padding: 2px; min-width: 0; min-height: 0; }"""
 
 
 class UpdateDot(Gtk.Box):
@@ -72,11 +73,15 @@ class UpdateDot(Gtk.Box):
         self.area.set_size_request(box, box)
         self.area.set_visible(True)
         self.area.set_draw_func(self._draw)
-        self.append(self.area)
 
-        click = Gtk.GestureClick()
-        click.connect("released", self._clicked)
-        self.area.add_controller(click)
+        # A real button, so the click stays with the dot. A bare drawing in a
+        # title bar lets the click through to the bar underneath, and two
+        # clicks on a title bar maximise the window.
+        self.button = Gtk.Button(child=self.area, valign=Gtk.Align.CENTER)
+        self.button.add_css_class("flat")
+        self.button.add_css_class("flow-dot")
+        self.button.connect("clicked", lambda _b: self._clicked(None, 1, 0, 0))
+        self.append(self.button)
 
         self._pulse_from = None
         self._pulse_hold = False
@@ -110,12 +115,16 @@ class UpdateDot(Gtk.Box):
         if note:
             self._say(note, settle=True)
         else:
-            self.area.set_tooltip_text(up.TOOLTIPS.get(state, ""))
+            self._tip(up.TOOLTIPS.get(state, ""))
         self.area.queue_draw()
         return False
 
+    def _tip(self, text):
+        target = getattr(self, "button", None) or self.area
+        target.set_tooltip_text(text)
+
     def _say(self, text, settle=False):
-        self.area.set_tooltip_text(text)
+        self._tip(text)
         if self._note_timer:
             GLib.source_remove(self._note_timer)
             self._note_timer = None
@@ -124,7 +133,7 @@ class UpdateDot(Gtk.Box):
 
     def _settle(self):
         self._note_timer = None
-        self.area.set_tooltip_text(up.TOOLTIPS.get(self.state, ""))
+        self._tip(up.TOOLTIPS.get(self.state, ""))
         return False
 
     # ----------------------------------------------------------- the clicking
