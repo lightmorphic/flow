@@ -148,7 +148,7 @@ class InputReader:
         return True
 
     def read(self):
-        """Yield (type, code, value) tuples currently available."""
+        """(type, code, value, seconds) for each report currently available."""
         try:
             data = os.read(self.fd, EVENT_SIZE * 64)
         except BlockingIOError:
@@ -159,8 +159,8 @@ class InputReader:
         events = []
         while len(self._buf) >= EVENT_SIZE:
             chunk, self._buf = self._buf[:EVENT_SIZE], self._buf[EVENT_SIZE:]
-            _s, _us, etype, code, value = struct.unpack(EVENT_FMT, chunk)
-            events.append((etype, code, value))
+            sec, usec, etype, code, value = struct.unpack(EVENT_FMT, chunk)
+            events.append((etype, code, value, sec + usec / 1e6))
         return events
 
     def close(self):

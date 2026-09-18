@@ -404,6 +404,37 @@ for _ in range(40):
     r._move(5, 0)
 check("the far edge does not bring you home", r.active is far)
 
+print("-- following the desktop's own speed-up --")
+from lmflow import accel as accel_mod
+curve = accel_mod.Curve(0.0, "adaptive")
+slow = accel_mod.Tracker(1000)
+moved = 0.0
+t0 = 1000.0
+for i in range(100):                      # 100 units, gently, over two seconds
+    mx, _my = slow.move(curve, 1, 0, t0 + i * 0.02)
+    moved += mx
+check("a slow, careful approach is not over-counted", 30 <= moved <= 110,
+      f"{moved:.0f} pixels for 100 units of hand movement")
+fast = accel_mod.Tracker(1000)
+flicked = 0.0
+for i in range(10):                       # the same 100 units in a quick flick
+    mx, _my = fast.move(curve, 10, 0, t0 + i * 0.005)
+    flicked += mx
+check("a quick flick is sped up, as the desktop does", flicked > 150,
+      f"{flicked:.0f} pixels for the same 100 units")
+
+n = make_server()
+n.curve = accel_mod.Curve(0.0, "adaptive")
+edge_peer = add_peer(n, "framework", "left", (1128, 752))
+n.x, n.y = 1920 * 0.25, 540                # a quarter of the screen from the left
+tracker = accel_mod.Tracker(1000)
+for i in range(120):                      # a slow drift to the left, not a push
+    n._motion(tracker, -1, 0, t0 + i * 0.02)
+    if n.active is edge_peer:
+        break
+check("a slow drift a quarter of a screen from the edge does not jump across",
+      n.active is None, f"stopped at x={n.x:.0f}")
+
 print("-- a hot corner can build up pressure --")
 from lmflow.linux_input import EV_ABS as _ABS, EV_REL as _REL
 k = make_server()

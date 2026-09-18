@@ -47,7 +47,7 @@ DEFAULTS = {
     # On your own screen the desktop speeds the pointer up, and Flow cannot
     # see where it really is. Counting movement generously means Flow reaches
     # an edge no later than the real pointer does, so pushing always crosses.
-    "local_edge_speed": 2.5,
+    "local_edge_speed": 1.5,
     # "position" is exact and cannot drift. "movement" is the older way, for a
     # desktop that will not accept a pointer told where to be.
     "pointer_mode": "position",
@@ -68,7 +68,8 @@ def load() -> dict:
     changed = False
     # Carry people still on an old default over to the new one; anyone who
     # chose their own value keeps it.
-    for key, old, new in (("push_px", 90, 70), ("push_ms", 450, 700)):
+    for key, old, new in (("push_px", 90, 70), ("push_ms", 450, 700),
+                          ("local_edge_speed", 2.5, 1.5)):
         if cfg.get(key) == old:
             cfg[key] = new
             changed = True

@@ -15,12 +15,12 @@ import ssl
 import threading
 import time
 
-from . import config, discovery, net, protocol, screen, status
+from . import accel, config, discovery, net, protocol, screen, status
 from .clipboard import Clipboard
 from .hotkeys import HotkeyWatcher
 from .linux_input import (ABS_RANGE, ABS_X, ABS_Y, EVIOCGRAB, EV_ABS, EV_KEY,
-                          EV_REL, InputError, InputReader, REL_X, REL_Y,
-                          list_devices)
+                          EV_REL, EV_SYN, InputError, InputReader, REL_X, REL_Y,
+                          SYN_REPORT, list_devices)
 from .touchpad import TouchpadTranslator
 
 RESCAN_SECONDS = 3.0
@@ -115,6 +115,9 @@ class Server:
 
         self.x = self.width // 2
         self.y = self.height // 2
+        self.curve = accel.Curve(*accel.desktop_settings())
+        self._trackers = {}                    # device path -> speed tracker
+        self._frames = {}                      # device path -> [dx, dy] this report
         self.active = None                     # None = this machine, else a Peer
 
         self._readers = {}
@@ -181,6 +184,8 @@ class Server:
                     ) from exc
                 continue
             self._readers[info.path] = reader
+            if info.kind == "mouse":
+                self._trackers[info.path] = accel.Tracker(accel.device_dpi(info.path))
             self._selector.register(reader.fd, selectors.EVENT_READ, reader)
             if info.kind == "touchpad":
                 self._pads[info.path] = TouchpadTranslator()
@@ -345,15 +350,17 @@ class Server:
     def _screen(self):
         return (self.width, self.height) if self.active is None else self.active.size
 
-    def _move(self, dx, dy):
-        # Where the pointer is, is counted generously on your own screen so the
-        # edge is always reachable. How hard you push is counted in real hand
-        # movement, so a hot corner is still never mistaken for a crossing.
-        raw_dx, raw_dy = dx, dy
-        speed = float(self.cfg["pointer_speed"] if self.active is not None
-                      else self.cfg.get("local_edge_speed", 2.5))
-        dx *= speed
-        dy *= speed
+    def _move(self, dx, dy, raw_dx=None, raw_dy=None):
+        """dx, dy: movement as the desktop shows it. raw_dx, raw_dy: the hand's
+        own movement, which is what a push is measured in. Called with raw
+        movement alone (a touchpad, the tests), a fixed factor stands in for
+        the desktop's curve."""
+        if raw_dx is None:
+            raw_dx, raw_dy = dx, dy
+            speed = float(self.cfg["pointer_speed"] if self.active is not None
+                          else self.cfg.get("local_edge_speed", 1.5))
+            dx *= speed
+            dy *= speed
         w, h = self._screen()
         want_x, want_y = self.x + dx, self.y + dy
         self.x = min(w - 1, max(0, want_x))
@@ -430,14 +437,35 @@ class Server:
         events = reader.read()
         if events is None:
             return
-        pad = self._pads.get(reader.info.path)
-        for etype, code, value in events:
+        path = reader.info.path
+        pad = self._pads.get(path)
+        tracker = self._trackers.get(path)
+        for etype, code, value, when in events:
             if pad is not None:
                 for out in pad.feed(etype, code, value):
                     self._consume(*out)
                 continue
+            if tracker is not None and etype == EV_REL and code in (REL_X, REL_Y):
+                frame = self._frames.setdefault(path, [0, 0])
+                frame[0 if code == REL_X else 1] += value
+                continue
+            if tracker is not None and etype == EV_SYN and code == SYN_REPORT:
+                frame = self._frames.pop(path, None)
+                if frame and (frame[0] or frame[1]):
+                    self._motion(tracker, frame[0], frame[1], when)
             self._consume(etype, code, value)
         self._flush()
+
+    def _motion(self, tracker, dx, dy, when):
+        """One report's worth of movement from a mouse."""
+        seen_x, seen_y = tracker.move(self.curve, dx, dy, when)
+        if self.active is not None:
+            factor = float(self.cfg["pointer_speed"])
+            seen_x, seen_y = seen_x * factor, seen_y * factor
+        self._move(seen_x, seen_y, raw_dx=dx, raw_dy=dy)
+        self._dx += dx
+        self._dy += dy
+        self._moved = True
 
     def _consume(self, etype, code, value):
         if etype == EV_KEY and code < 0x100 and self.hotkeys.feed(code, value):
@@ -585,6 +613,9 @@ class Server:
                 self._drop(peer)
 
     def _reload_config(self):
+        self._settings_tick = getattr(self, "_settings_tick", 0) + 1
+        if self._settings_tick % 10 == 0:
+            self.curve.set(*accel.desktop_settings())
         mtime = config.mtime()
         if mtime == self._cfg_mtime:
             return

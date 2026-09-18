@@ -80,6 +80,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.7.12" date="2026-09-18">
+      <description>
+        <p>The pointer no longer jumps to the other computer before it has reached the edge.</p>
+      </description>
+    </release>
     <release version="0.7.11" date="2026-09-18">
       <description>
         <p>GNOME's hot corner opens the Overview on the computer being controlled.</p>
