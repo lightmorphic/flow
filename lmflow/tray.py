@@ -201,8 +201,8 @@ class Tray:
         self.menu.append(settings)
 
         self.menu.append(Gtk.SeparatorMenuItem())
-        quit_item = Gtk.MenuItem(label="Hide this icon")
-        quit_item.connect("activate", lambda _w: Gtk.main_quit())
+        quit_item = Gtk.MenuItem(label="Exit Lightmorphic Flow")
+        quit_item.connect("activate", self._exit)
         self.menu.append(quit_item)
 
         self.menu.show_all()
@@ -223,6 +223,18 @@ class Tray:
         result = _systemctl("is-active", self._unit())
         self._service_was = bool(result) and result.stdout.strip() == "active"
         return self._service_was
+
+    def _exit(self, _widget):
+        """Stop everything: the sharing, the settings window, and this icon.
+        Your mouse and keyboard are handed straight back. It starts again
+        the next time you log in, or when you open it from the menu."""
+        _systemctl("stop", "lmflow-server.service", "lmflow-client.service")
+        try:
+            # Matches both "/usr/bin/lmflow gui" and "python3 -m lmflow gui".
+            subprocess.run(["pkill", "-f", "--", "lmflow gui"], timeout=5)
+        except (OSError, subprocess.SubprocessError):
+            pass
+        Gtk.main_quit()
 
     def _drop(self, _widget, peer_id):
         status.send(f"drop:{peer_id}")
