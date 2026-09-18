@@ -80,6 +80,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.7.2" date="2026-09-18">
+      <description>
+        <p>Says plainly when the two computers are running versions that cannot work together, instead of half working.</p>
+      </description>
+    </release>
     <release version="0.7.1" date="2026-09-18">
       <description>
         <p>Coming home is now a nudge rather than a shove, so the pointer never feels stuck on the other machine.</p>

@@ -600,7 +600,8 @@ class Server:
             "token": self.cfg["token"], "name": discovery.machine_name(),
             "id": discovery.machine_id(),
         }))
-        self.log(f"connected: {name} at {addr[0]} on the {peer.edge}")
+        self.log(f"connected: {name} ({hello.get('version', '?')}) at {addr[0]} "
+                 f"on the {peer.edge}")
         self.publish()
         self._read_loop(peer)
 
@@ -616,6 +617,15 @@ class Server:
                     return None
                 hello = json.loads(body.decode("utf-8"))
                 if not hello.get("id"):
+                    return None
+                theirs = int(hello.get("protocol", 1))
+                if theirs != protocol.VERSION:
+                    from . import __version__
+                    self.log(
+                        f"{hello.get('name')} is running Lightmorphic Flow "
+                        f"{hello.get('version', 'an older version')} and this "
+                        f"machine is running {__version__}. They cannot work "
+                        "together: update the older one.")
                     return None
                 ok = hello.get("token") == self.cfg["token"]
                 if not ok and config.pairing_open():

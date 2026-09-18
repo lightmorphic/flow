@@ -25,6 +25,7 @@ class Client:
         self.width = size[0] if size else int(self.cfg["screen_width"])
         self.height = size[1] if size else int(self.cfg["screen_height"])
 
+        self.protocol = protocol.VERSION
         self.id = discovery.machine_id()
         self.name = discovery.machine_name()
         self.listener = None
@@ -142,9 +143,11 @@ class Client:
                 "Flow was reinstalled there. Press 'Trust it again' in the "
                 "settings window, or 'Allow a new computer' over there.")
 
+        from . import __version__
         conn.sendall(protocol.pack_json(protocol.HELLO, {
             "id": self.id, "name": self.name, "token": self.cfg["token"],
             "width": self.width, "height": self.height,
+            "protocol": self.protocol, "version": __version__,
         }))
         framer = protocol.Framer()
         conn.settimeout(10)

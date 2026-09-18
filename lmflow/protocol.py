@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 import struct
 
+VERSION = 2          # 2: the pointer is sent as a position, not a movement
+
 HELLO = 1
 INPUT = 2
 CLIPBOARD = 3

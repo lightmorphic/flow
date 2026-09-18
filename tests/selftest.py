@@ -238,6 +238,18 @@ def make_client(token, ident="laptop-2"):
     return cli
 
 
+old = make_client("t", ident="ancient")
+old.protocol = 1                       # pretend to be an older copy
+old.running = True
+refused_old = False
+try:
+    old._session()
+except Exception:
+    refused_old = True
+old.running = False
+check("a machine running an older version is turned away, not left broken",
+      refused_old)
+
 unknown = make_client("not-the-right-one")
 unknown.running = True
 refused = False
