@@ -1,6 +1,8 @@
 """Hotkey parsing and matching against raw key codes."""
 from __future__ import annotations
 
+import time
+
 from .linux_input import (KEY_LEFTALT, KEY_LEFTCTRL, KEY_LEFTMETA, KEY_LEFTSHIFT,
                           KEY_RIGHTALT, KEY_RIGHTCTRL, KEY_RIGHTMETA, KEY_RIGHTSHIFT)
 
@@ -58,6 +60,12 @@ class HotkeyWatcher:
         nothing to hold down - the way out when everything else has failed."""
         self._panic = callback
 
+    def reset(self):
+        """Forget held modifiers - after the keyboard was closed and reopened,
+        a key-up may have gone by unseen."""
+        self._held.clear()
+        self._escapes.clear()
+
     def bind(self, spec, callback):
         parsed = parse(spec)
         if parsed:
@@ -67,7 +75,6 @@ class HotkeyWatcher:
     def feed(self, code: int, value: int) -> bool:
         """Returns True if the event was a registered hotkey press (swallow it)."""
         if code == KEY_ESC and value == 1 and self._panic is not None:
-            import time
             now = time.monotonic()
             self._escapes = [t for t in self._escapes if now - t < ESCAPE_WINDOW]
             self._escapes.append(now)

@@ -15,6 +15,8 @@ from __future__ import annotations
 import sys
 import threading
 
+MAX_BYTES = 4 * 1024 * 1024
+
 
 def main():
     import gi
@@ -62,14 +64,15 @@ def main():
     def listen():
         buffer = b""
         while True:
-            chunk = sys.stdin.buffer.read(1)
+            chunk = sys.stdin.buffer.read1(65536)
             if not chunk:
                 break
-            if chunk == b"\0":
-                GLib.idle_add(put, buffer.decode("utf-8", "replace"))
-                buffer = b""
-            else:
-                buffer += chunk
+            buffer += chunk
+            while b"\0" in buffer:
+                text, buffer = buffer.split(b"\0", 1)
+                GLib.idle_add(put, text.decode("utf-8", "replace"))
+            if len(buffer) > MAX_BYTES:
+                buffer = buffer[-MAX_BYTES:]
         GLib.idle_add(quit_now)
 
     loop = GLib.MainLoop()

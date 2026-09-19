@@ -99,7 +99,6 @@ def _launcher():
     local = os.path.expanduser("~/.local/bin/lmflow")
     if os.path.exists(local):
         return local
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     return f"{sys.executable} -m lmflow"
 
 
@@ -287,7 +286,7 @@ def cmd_doctor(_args):
         print(f"{label:16} {'yes' if _typelib(namespace, version) else 'no'}")
 
     try:
-        import gi._gi_cairo            # noqa: F401
+        import gi._gi_cairo            # noqa: F401 - the probe is the import
         import cairo                   # noqa: F401
         print("cairo drawing    yes")
     except ImportError:
@@ -352,13 +351,20 @@ def cmd_report(_args):
     lines = [f"Lightmorphic Flow report, {datetime.datetime.now():%Y-%m-%d %H:%M}",
              "", buffer.getvalue()]
 
+    # Settings, with the secrets blanked: this file is made to be sent on.
+    shown = dict(config.load())
+    for secret in ("token", "server_fingerprint"):
+        if shown.get(secret):
+            shown[secret] = "(hidden)"
+    lines.append("\n===== settings =====")
+    lines.append(json.dumps(shown, indent=2, sort_keys=True))
+
     for title, argv in (
         ("services", ["systemctl", "--user", "--no-pager", "--all",
                       "list-units", "lmflow*"]),
         ("recent log", ["journalctl", "--user", "-u", "lmflow-server.service",
                         "-u", "lmflow-client.service", "-u", "lmflow-tray.service",
                         "-n", "200", "--no-pager"]),
-        ("settings", ["cat", os.path.expanduser("~/.config/lmflow/config.json")]),
         ("what it is doing", ["cat", os.path.expanduser("~/.config/lmflow/status.json")]),
         ("input devices", ["cat", "/proc/bus/input/devices"]),
     ):
@@ -371,6 +377,7 @@ def cmd_report(_args):
 
     with open(target, "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines))
+    os.chmod(target, 0o600)
     print(f"Written to {target}")
     return 0
 

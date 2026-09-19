@@ -36,6 +36,9 @@ def unpack_events(body: bytes):
     return [_EVT.unpack(body[i:i + n]) for i in range(0, len(body) - len(body) % n, n)]
 
 
+MAX_FRAME = 8 * 1024 * 1024     # the clipboard cap, with room to spare
+
+
 class Framer:
     """Feed bytes in, get (kind, body) messages out."""
 
@@ -47,6 +50,8 @@ class Framer:
         out = []
         while len(self._buf) >= _HDR.size:
             kind, length = _HDR.unpack_from(self._buf)
+            if length > MAX_FRAME:
+                raise ValueError(f"frame of {length} bytes refused")
             if len(self._buf) < _HDR.size + length:
                 break
             body = self._buf[_HDR.size:_HDR.size + length]

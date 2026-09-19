@@ -8,6 +8,7 @@ from __future__ import annotations
 import math
 import os
 import sys
+import threading
 import time
 
 import gi
@@ -149,10 +150,16 @@ class UpdateDot(Gtk.Box):
     def _install(self):
         self._say("installing")
         self._start_pulse(hold=True)         # until the app restarts
-        GLib.idle_add(self._do_install)
+        # Off the main thread: the install waits on a password prompt and on
+        # the package manager, and the window must keep drawing meanwhile.
+        threading.Thread(target=self._do_install, daemon=True).start()
 
     def _do_install(self):
-        if not self.updater.install_and_restart():
+        ok = self.updater.install_and_restart()
+        GLib.idle_add(self._installed, ok)
+
+    def _installed(self, ok):
+        if not ok:
             self._pulse_hold = False
             self._apply(up.OFFLINE, 0.0, "could not install the update")
             return False

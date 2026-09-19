@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import fcntl
 import os
-import re
 import struct
 from dataclasses import dataclass, field
 
@@ -236,10 +235,8 @@ class VirtualDevice:
 
     def emit(self, events):
         """events: iterable of (type, code, value); a SYN is appended."""
-        blob = b""
-        for etype, code, value in events:
-            blob += struct.pack(EVENT_FMT, 0, 0, etype, code, value)
-        blob += struct.pack(EVENT_FMT, 0, 0, EV_SYN, SYN_REPORT, 0)
+        blob = b"".join([struct.pack(EVENT_FMT, 0, 0, t, c, v) for t, c, v in events]
+                        + [struct.pack(EVENT_FMT, 0, 0, EV_SYN, SYN_REPORT, 0)])
         try:
             os.write(self.fd, blob)
         except OSError:

@@ -80,6 +80,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.8.2" date="2026-09-19">
+      <description>
+        <p>A full review: reports keep secrets out, the pairing door shuts behind one machine, the touchpad drives the pointer too, and nothing can reach two machines at once after a stall.</p>
+      </description>
+    </release>
     <release version="0.8.1" date="2026-09-18">
       <description>
         <p>Exit in the tray menu stops the whole app.</p>

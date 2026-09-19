@@ -260,6 +260,14 @@ except Exception:
     refused = True
 check("an unknown machine is turned away", refused)
 
+# A frame claiming to be enormous is refused before anything is buffered.
+try:
+    protocol.Framer().feed(protocol._HDR.pack(protocol.INPUT, 4_000_000_000))
+    huge_ok = False
+except ValueError:
+    huge_ok = True
+check("a frame claiming four gigabytes is refused outright", huge_ok)
+
 config.open_pairing(60)
 joiner = make_client("not-the-right-one")
 joiner._open_devices()
@@ -271,6 +279,16 @@ check("and remembers the certificate", len(joiner.cfg["server_fingerprint"]) == 
 check("the new machine was given an edge",
       srv.cfg["peers"].get("laptop-2", {}).get("edge") in server_mod.EDGES,
       str(srv.cfg["peers"]))
+check("and the pairing door shut behind it", not config.pairing_open())
+second = make_client("not-the-right-one", ident="tailgater")
+second.running = True
+tailgated = True
+try:
+    second._session()
+except Exception:
+    tailgated = False
+second.running = False
+check("so a second unknown machine is not let in on the same opening", not tailgated)
 config.close_pairing()
 
 peer = srv.peers.get("laptop-2")
@@ -501,6 +519,53 @@ check("clicks and scrolling reach this computer",
       (1, 0x110, 1) in g.local_ptr.events and (2, 8, -1) in g.local_ptr.events,
       str(g.local_ptr.events))
 check("and the mouse is still held after coming home", mouse.grabbed)
+
+print("-- after a stall, never two machines at once --")
+h = make_server()
+h.local_ptr, h.local_press = FakeLocal(), FakeLocal()
+away = add_peer(h, "framework", "left", (1128, 752))
+hm = FakeMouse(); h._readers[hm.info.path] = hm
+h._trackers[hm.info.path] = accel_mod.Tracker(1000)
+h.x, h.y = 5, 400
+h.go_to(away)
+# The watchdog let go while the loop was stuck; now the loop wakes.
+hm.ungrab(); h._stalled = True
+h._alive_at = time.monotonic()
+if h._stalled:
+    h._stalled = False
+    if h.active is not None:
+        h.go_local()
+    h._regrab_drivers()
+check("the pointer is brought home, so keys never reach both machines", h.active is None)
+check("and the mouse is taken back to drive this pointer", hm.grabbed)
+
+print("-- the touchpad drives the same pointer --")
+from lmflow.touchpad import TouchpadTranslator
+from lmflow.linux_input import (ABS_MT_POSITION_X, ABS_MT_POSITION_Y, ABS_MT_SLOT,
+                                ABS_MT_TRACKING_ID, EV_ABS as _EVABS)
+tp = make_server()
+tp.local_ptr, tp.local_press = FakeLocal(), FakeLocal()
+class FakePad(FakeMouse):
+    def __init__(self):
+        super().__init__()
+        self.info = DeviceInfo("/dev/input/fake-pad", "fake pad", "touchpad")
+pad = FakePad(); tp._readers[pad.info.path] = pad
+tp._pads[pad.info.path] = TouchpadTranslator()
+tp._trackers[pad.info.path] = accel_mod.Tracker(1000)
+tp.x, tp.y = 500, 300
+tclock = [3000.0]
+def finger(x, y):
+    tclock[0] += 0.01
+    pad.queue = [(_EVABS, ABS_MT_SLOT, 0, tclock[0]), (_EVABS, ABS_MT_TRACKING_ID, 7, tclock[0]),
+                 (_EVABS, ABS_MT_POSITION_X, x, tclock[0]), (_EVABS, ABS_MT_POSITION_Y, y, tclock[0]),
+                 (_SYN, _SR, 0, tclock[0])]
+    tp._handle(pad)
+finger(1000, 1000)
+for i in range(1, 20):
+    finger(1000 + i * 6, 1000)
+placed = [e for e in tp.local_ptr.events if e[0] == _ABS]
+check("a held touchpad moves this pointer through Flow", bool(placed) and tp.x > 500,
+      f"x moved to {tp.x:.0f}, {len(placed)//2} placements")
 
 print("-- a hot corner can build up pressure --")
 from lmflow.linux_input import EV_ABS as _ABS, EV_REL as _REL

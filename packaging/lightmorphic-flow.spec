@@ -1,5 +1,5 @@
 Name:           lightmorphic-flow
-Version:        0.8.1
+Version:        0.8.2
 Release:        1%{?dist}
 Summary:        Share one mouse, keyboard and clipboard between Linux computers
 
@@ -161,9 +161,19 @@ if [ -d /run/udev ]; then
     udevadm control --reload-rules >/dev/null 2>&1 || :
     udevadm trigger --subsystem-match=input --subsystem-match=misc >/dev/null 2>&1 || :
 fi
+if [ -x /usr/sbin/ufw ]; then ufw app update Lightmorphic-Flow >/dev/null 2>&1 || :; fi
+if [ -x /usr/bin/firewall-cmd ]; then firewall-cmd --reload >/dev/null 2>&1 || :; fi
 systemctl daemon-reload >/dev/null 2>&1 || :
-    systemctl --global enable lmflow-tray.service >/dev/null 2>&1 || :
+systemctl --global enable lmflow-tray.service >/dev/null 2>&1 || :
 rm -f %{_sysconfdir}/xdg/autostart/uk.lightmorph.Flow.tray.desktop
+# Restart running copies, or an upgrade leaves the old code in memory.
+for who in $(loginctl list-users --no-legend 2>/dev/null | awk '{print $2}'); do
+    systemctl --user -M "$who@" try-restart lmflow-server.service \
+        lmflow-client.service lmflow-tray.service >/dev/null 2>&1 || :
+done
+gtk-update-icon-cache -qf /usr/share/icons/hicolor >/dev/null 2>&1 || :
+update-desktop-database -q /usr/share/applications >/dev/null 2>&1 || :
+appstreamcli refresh --force >/dev/null 2>&1 || :
 echo ""
 echo "  Lightmorphic Flow is ready. Open it from your applications."
 echo "  If it tells you it cannot read your mouse, log out and back in once."
@@ -192,6 +202,9 @@ fi
 %{_datadir}/icons/hicolor/*/apps/uk.lightmorph.Flow*.png
 
 %changelog
+* Sat Sep 19 2026 Lightmorphic <github@lightmorphic.com> - 0.8.2-1
+- Full review: secrets kept out of reports, no double-delivery after a stall, faster
+
 * Fri Sep 18 2026 Lightmorphic <github@lightmorphic.com> - 0.8.1-1
 - Exit from the tray menu stops the whole app
 

@@ -101,14 +101,15 @@ class Clipboard:
 
             buffer = b""
             while not self._stop.is_set():
-                chunk = self._helper.stdout.read(1)
+                chunk = self._helper.stdout.read1(65536)
                 if not chunk:
                     break
-                if chunk == b"\0":
-                    self._arrived(buffer.decode("utf-8", "replace"))
-                    buffer = b""
-                elif len(buffer) < self.MAX_BYTES:
-                    buffer += chunk
+                buffer += chunk
+                while b"\0" in buffer:
+                    text, buffer = buffer.split(b"\0", 1)
+                    self._arrived(text[: self.MAX_BYTES].decode("utf-8", "replace"))
+                if len(buffer) > self.MAX_BYTES:
+                    buffer = buffer[-self.MAX_BYTES:]
 
             if self._stop.is_set():
                 return

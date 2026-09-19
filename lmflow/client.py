@@ -9,10 +9,9 @@ import time
 from . import config, discovery, net, protocol, screen, status
 from .clipboard import Clipboard
 from .linux_input import (ABS_RANGE, ABS_X, ABS_Y, EV_ABS, EV_KEY, EV_REL,
-                          InputError, REL_X, REL_Y, VirtualDevice)
+                          REL_X, REL_Y, VirtualDevice)
 
 RECONNECT_SECONDS = 3.0
-SLAM = 40000            # far enough to pin the cursor into a corner
 
 
 class Client:
@@ -26,6 +25,8 @@ class Client:
         self.height = size[1] if size else int(self.cfg["screen_height"])
 
         self.protocol = protocol.VERSION
+        self._applied = 0
+        self._noted = 0.0
         self.id = discovery.machine_id()
         self.name = discovery.machine_name()
         self.listener = None
@@ -192,7 +193,7 @@ class Client:
                 data = conn.recv(65536)
                 if not data:
                     break
-                for kind, body in framer.feed(data):
+                for kind, body in framer.feed(data):     # ValueError ends the session
                     self._dispatch(kind, body)
         finally:
             with self._lock:
@@ -246,9 +247,9 @@ class Client:
             pass
 
     def _note(self, events):
-        self._applied = getattr(self, "_applied", 0) + len(events)
+        self._applied += len(events)
         now = time.monotonic()
-        if now - getattr(self, "_noted", 0) > 5.0:
+        if now - self._noted > 5.0:
             self._noted = now
             self.log(f"applied {self._applied} pointer events so far")
 

@@ -10,14 +10,15 @@ import time
 import gi
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk               # noqa: E402
+from gi.repository import GLib               # noqa: E402
 
-# Tell the desktop which application this is. Without it the menu's own
-# window shows up in the dock as an unnamed extra with a placeholder icon,
-# appearing and disappearing as the menu comes and goes.
+# Tell the desktop which application this is, before GTK is touched. Without
+# it the menu's own window shows up in the dock as an unnamed extra with a
+# placeholder icon, appearing and disappearing as the menu comes and goes.
 APP_ID = "uk.lightmorph.Flow"
 GLib.set_prgname(APP_ID)
 GLib.set_application_name("Lightmorphic Flow")
+from gi.repository import Gtk                # noqa: E402
 
 from . import __version__, config, permissions, status   # noqa: E402
 
@@ -230,8 +231,9 @@ class Tray:
         the next time you log in, or when you open it from the menu."""
         _systemctl("stop", "lmflow-server.service", "lmflow-client.service")
         try:
-            # Matches both "/usr/bin/lmflow gui" and "python3 -m lmflow gui".
-            subprocess.run(["pkill", "-f", "--", "lmflow gui"], timeout=5)
+            # "/usr/bin/lmflow gui" or "python3 -m lmflow gui", and nothing
+            # that merely has those words somewhere in its name.
+            subprocess.run(["pkill", "-f", "--", r"lmflow gui$"], timeout=5)
         except (OSError, subprocess.SubprocessError):
             pass
         Gtk.main_quit()

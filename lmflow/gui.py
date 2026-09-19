@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import time
 
 import gi
 
@@ -31,6 +32,9 @@ def _systemctl(*args):
         return None
 
 
+SERVICE_POLL_SECONDS = 5.0
+
+
 class Window(Adw.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app, title="Lightmorphic Flow",
@@ -41,6 +45,8 @@ class Window(Adw.ApplicationWindow):
         self._found_signature = None
         self._allow_row = None
         self._allow_button = None
+        self._service_checked = 0.0
+        self._code_widget = None       # built once: it holds what you are typing
 
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         header = Adw.HeaderBar()
@@ -410,6 +416,8 @@ class Window(Adw.ApplicationWindow):
         return row
 
     def _code_row(self):
+        if self._code_widget is not None:
+            return self._code_widget
         row = Adw.ExpanderRow(title="Pairing code",
                               subtitle="Only needed when the two are not on the same network")
         if self._code is None:
@@ -428,6 +436,7 @@ class Window(Adw.ApplicationWindow):
         entry.set_show_apply_button(True)
         entry.connect("apply", self._apply_code)
         row.add_row(entry)
+        self._code_widget = row
         return row
 
     # --------------------------------------------------------------- actions
@@ -440,7 +449,7 @@ class Window(Adw.ApplicationWindow):
     def _on_role(self, widget, _param):
         self._save("role", "server" if widget.get_selected() == 0 else "client")
         self._rebuild_machines()
-        self._refresh_power()
+        self._refresh_power(force=True)
 
     def _on_peer_edge(self, widget, _param, ident):
         peers = self.cfg.setdefault("peers", {})
@@ -538,8 +547,13 @@ class Window(Adw.ApplicationWindow):
                 return
         else:
             _systemctl("stop", self._unit())
+        self._service_checked = 0.0
 
-    def _refresh_power(self):
+    def _refresh_power(self, force=False):
+        now = time.monotonic()
+        if not force and now - self._service_checked < SERVICE_POLL_SECONDS:
+            return
+        self._service_checked = now
         result = _systemctl("is-active", self._unit())
         running = bool(result) and result.stdout.strip() == "active"
         if self.power.get_active() != running:

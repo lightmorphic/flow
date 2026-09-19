@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import errno
 import fcntl
+import hmac
 import json
 import queue
 import selectors
@@ -29,6 +30,12 @@ WATCHDOG_SECONDS = 4.0
 SILENCE_SECONDS = 8.0
 EDGES = ("right", "left", "top", "bottom")
 OPPOSITE = {"right": "left", "left": "right", "top": "bottom", "bottom": "top"}
+
+
+def _scaled(x, y, width, height):
+    """A screen position on the 0..32767 scale an absolute pointer speaks."""
+    return (max(0, min(ABS_RANGE, int(x * ABS_RANGE / max(1, width - 1)))),
+            max(0, min(ABS_RANGE, int(y * ABS_RANGE / max(1, height - 1)))))
 
 
 def _free(reader):
@@ -80,8 +87,11 @@ class Peer:
         return True
 
     def _write_loop(self):
-        while True:
-            blob = self.outbox.get()
+        while self.alive:
+            try:
+                blob = self.outbox.get(timeout=1.0)
+            except queue.Empty:
+                continue
             if blob is None:
                 return
             try:
@@ -136,7 +146,9 @@ class Server:
         self.local_press = None
         self._local_place = None
         self._local_batch = []
-        self._driving = False
+        self._readers_lock = threading.Lock()   # the watchdog looks in from outside
+        self._stalled = False
+        self._settings_tick = 0
         self._push = 0.0
         self._push_edge = None
         self._push_started = 0.0
@@ -193,7 +205,7 @@ class Server:
                     ) from exc
                 continue
             self._readers[info.path] = reader
-            if info.kind == "mouse":
+            if info.kind in ("mouse", "touchpad"):
                 self._trackers[info.path] = accel.Tracker(accel.device_dpi(info.path))
             self._selector.register(reader.fd, selectors.EVENT_READ, reader)
             if info.kind == "touchpad":
@@ -207,20 +219,35 @@ class Server:
             self.log(f"device: {info.kind} {info.name}")
 
         for path in [p for p in self._readers if p not in seen]:
-            reader = self._readers.pop(path)
+            with self._readers_lock:
+                reader = self._readers.pop(path)
             try:
                 self._selector.unregister(reader.fd)
             except (KeyError, ValueError):
                 pass
             reader.close()
             self._pads.pop(path, None)
+            self._trackers.pop(path, None)
             self.log(f"device gone: {reader.info.name}")
 
     def _drives_kind(self, kind):
-        return kind == "mouse" and self.local_ptr is not None
+        """Could a device of this kind be driving this pointer at all."""
+        if self.local_ptr is None:
+            return False
+        return kind == "mouse" or (kind == "touchpad" and self.cfg["grab_touchpads"])
 
-    def _drives(self, reader):
-        return self._drives_kind(reader.info.kind) and reader.grabbed
+    def _driving(self):
+        """Is any device actually held and driving it right now."""
+        return any(r.grabbed and self._drives_kind(r.info.kind)
+                   for r in self._readers.values())
+
+    def _regrab_drivers(self):
+        for reader in self._readers.values():
+            if self._drives_kind(reader.info.kind) and not reader.grabbed:
+                try:
+                    reader.grab()
+                except OSError:
+                    pass
 
     def _open_local(self):
         if not self.cfg.get("drive_local_pointer", True):
@@ -238,8 +265,7 @@ class Server:
             self.log(f"cannot drive this pointer ({exc}); following it instead")
 
     def _place_local(self, force=False):
-        place = (max(0, min(ABS_RANGE, int(self.x * ABS_RANGE / max(1, self.width - 1)))),
-                 max(0, min(ABS_RANGE, int(self.y * ABS_RANGE / max(1, self.height - 1)))))
+        place = _scaled(self.x, self.y, self.width, self.height)
         if force or place != self._local_place:
             self._local_place = place
             return [(EV_ABS, ABS_X, place[0]), (EV_ABS, ABS_Y, place[1])]
@@ -260,8 +286,11 @@ class Server:
             except (KeyError, ValueError):
                 pass
             reader.close()
-            self._readers.pop(path, None)
+            with self._readers_lock:
+                self._readers.pop(path, None)
             self._pads.pop(path, None)
+            self._trackers.pop(path, None)
+        self.hotkeys.reset()               # a key-up may have been lost in the swap
         self._scan_devices()
         stuck = [r.info.name for r in self._readers.values()
                  if not self._drives_kind(r.info.kind) and not _free(r)]
@@ -487,11 +516,17 @@ class Server:
         path = reader.info.path
         pad = self._pads.get(path)
         tracker = self._trackers.get(path)
-        self._driving = self._drives(reader)
         for etype, code, value, when in events:
             if pad is not None:
-                for out in pad.feed(etype, code, value):
-                    self._consume(*out)
+                theirs = self.local_ptr is not None and not reader.grabbed
+                for otype, ocode, ovalue in pad.feed(etype, code, value):
+                    if otype == EV_REL and ocode in (REL_X, REL_Y):
+                        if theirs and self.active is None:
+                            continue
+                        self._motion(tracker, ovalue if ocode == REL_X else 0,
+                                     ovalue if ocode == REL_Y else 0, when)
+                    else:
+                        self._consume(otype, ocode, ovalue)
                 continue
             if tracker is not None and etype == EV_REL and code in (REL_X, REL_Y):
                 frame = self._frames.setdefault(path, [0, 0])
@@ -529,7 +564,7 @@ class Server:
             return                      # sent as a position, not a movement
         if self.active is not None:
             self._batch.append((etype, code, value))
-        elif self._driving and (
+        elif self.local_ptr is not None and (
                 (etype == EV_KEY and 0x110 <= code <= 0x117)
                 or (etype == EV_REL and code not in (REL_X, REL_Y))):
             self._local_batch.append((etype, code, value))   # buttons and wheels
@@ -550,7 +585,7 @@ class Server:
         peer = self.active
         if peer is None:
             self._batch.clear()
-            if self._driving:
+            if self._driving():
                 self._flush_local()
             else:
                 self._local_batch.clear()
@@ -570,9 +605,7 @@ class Server:
             # Only sent when it has actually changed: pinned in a corner, a
             # re-sent position counts as a fresh placement and wipes out the
             # pressure GNOME is adding up to open the Overview.
-            width, height = peer.size
-            place = (max(0, min(ABS_RANGE, int(self.x * ABS_RANGE / max(1, width - 1)))),
-                     max(0, min(ABS_RANGE, int(self.y * ABS_RANGE / max(1, height - 1)))))
+            place = _scaled(self.x, self.y, *peer.size)
             if place != self._last_place:
                 events.append((EV_ABS, ABS_X, place[0]))
                 events.append((EV_ABS, ABS_Y, place[1]))
@@ -598,11 +631,15 @@ class Server:
         while self.running:
             time.sleep(1.0)
             stalled = time.monotonic() - self._alive_at > WATCHDOG_SECONDS
-            if stalled and not released and any(r.grabbed for r in self._readers.values()):
-                released = True
-                self.log("stopped responding - letting go of the mouse and keyboard")
-                for reader in list(self._readers.values()):
-                    reader.ungrab()
+            if stalled and not released:
+                with self._readers_lock:
+                    held = [r for r in self._readers.values() if r.grabbed]
+                    if held:
+                        released = True
+                        self._stalled = True
+                        self.log("stopped responding - letting go of the mouse and keyboard")
+                        for reader in held:
+                            reader.ungrab()
             elif not stalled:
                 released = False
 
@@ -627,6 +664,12 @@ class Server:
                     self._handle(key.data)
                 now = time.monotonic()
                 self._alive_at = now
+                if self._stalled:
+                    self._stalled = False
+                    self.log("responding again - tidying up after the stall")
+                    if self.active is not None:
+                        self.go_local()        # never feed two machines at once
+                    self._regrab_drivers()
                 if now - last_scan > RESCAN_SECONDS:
                     last_scan = now
                     self._scan_devices()
@@ -684,8 +727,8 @@ class Server:
                 self._drop(peer)
 
     def _reload_config(self):
-        self._settings_tick = getattr(self, "_settings_tick", 0) + 1
-        if self._settings_tick % 10 == 0:
+        self._settings_tick += 1
+        if self._settings_tick % 60 == 0:      # once a minute is plenty
             self.curve.set(*accel.desktop_settings())
         mtime = config.mtime()
         if mtime == self._cfg_mtime:
@@ -772,19 +815,24 @@ class Server:
                 pass
             return
 
-        ident = hello["id"]
-        name = hello.get("name") or addr[0]
-        known = self.cfg.setdefault("peers", {})
+        ident = "".join(c for c in str(hello["id"]) if c.isalnum() or c in "-_")[:32]
+        name = "".join(c for c in str(hello.get("name") or addr[0])
+                       if c.isprintable())[:48].strip() or addr[0]
+        with self._peers_lock:
+            fresh = config.load()      # not a copy that may be a second stale
+        known = fresh.setdefault("peers", {})
         entry = known.get(ident)
         if entry is None:
             entry = {"name": name, "edge": self._free_edge(), "enabled": True}
             known[ident] = entry
-            config.save(self.cfg)
+            config.save(fresh)
+            self.cfg["peers"] = known
             self._cfg_mtime = config.mtime()
             self.log(f"new machine allowed: {name} (on the {entry['edge']})")
         elif entry.get("name") != name:
             entry["name"] = name
-            config.save(self.cfg)
+            config.save(fresh)
+            self.cfg["peers"] = known
             self._cfg_mtime = config.mtime()
 
         peer = Peer(ident, name, conn,
@@ -810,11 +858,16 @@ class Server:
     def _read_hello(self, conn):
         conn.settimeout(10)
         framer = protocol.Framer()
-        while True:
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
             data = conn.recv(4096)
             if not data:
                 return None
-            for kind, body in framer.feed(data):
+            try:
+                frames = framer.feed(data)
+            except ValueError:
+                return None
+            for kind, body in frames:
                 if kind != protocol.HELLO:
                     return None
                 hello = json.loads(body.decode("utf-8"))
@@ -829,15 +882,17 @@ class Server:
                         f"machine is running {__version__}. They cannot work "
                         "together: update the older one.")
                     return None
-                ok = hello.get("token") == self.cfg["token"]
+                ok = hmac.compare_digest(str(hello.get("token", "")), self.cfg["token"])
                 if not ok and config.pairing_open():
                     ok = True
-                    self.log(f"pairing window: letting {hello.get('name')} in")
+                    config.close_pairing()     # one new machine, not everyone
+                    self.log("pairing window: letting a new machine in, and closing")
                 if not ok:
                     self.log(f"refused {hello.get('name')}: not paired with this machine")
                     return None
                 conn.settimeout(None)
                 return hello
+        return None
 
     def _read_loop(self, peer):
         framer = protocol.Framer()
@@ -850,7 +905,13 @@ class Server:
                 self._drop(peer)
                 return
             peer.heard = time.monotonic()
-            for kind, body in framer.feed(data):
+            try:
+                frames = framer.feed(data)
+            except ValueError as exc:
+                self.log(f"{peer.name}: {exc}")
+                self._drop(peer)
+                return
+            for kind, body in frames:
                 if kind == protocol.CLIPBOARD and self.cfg["share_clipboard"]:
                     text = body.decode("utf-8", "replace")
                     self.clipboard.apply(text)
